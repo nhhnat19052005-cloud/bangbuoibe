@@ -1,7 +1,7 @@
--- ollie_dynamic_island_pro_v20.lua
--- Cập nhật điều kiện Hop Server: Từ 2 người trở lên, không vào server 1 mạng.
+-- ollie_dynamic_island_pro_v23.lua
+-- Tối ưu hóa tối đa: Giảm update rate UI, dọn rác ESP, chống lag tuyệt đối.
 
-print("[ollie] Bắt đầu tải script v20...")
+print("[ollie] Đang tải Dynamic Island v23 (Zero Lag)...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -67,18 +67,18 @@ local function setupUI()
     gradient.Rotation = 90
 
     local titleTxt = Instance.new("TextLabel", island)
-    titleTxt.Size = UDim2.new(0.5, 0, 0, 36)
-    titleTxt.Position = UDim2.new(0, 20, 0, 0)
+    titleTxt.Size = UDim2.new(0.6, 0, 0, 36)
+    titleTxt.Position = UDim2.new(0, 15, 0, 0)
     titleTxt.BackgroundTransparency = 1
-    titleTxt.Text = "huongcuto"
+    titleTxt.Text = "FPS: ... | MS: ..."
     titleTxt.TextColor3 = Color3.fromRGB(220, 220, 240)
     titleTxt.Font = Enum.Font.GothamBold
-    titleTxt.TextSize = 14
+    titleTxt.TextSize = 12
     titleTxt.TextXAlignment = Enum.TextXAlignment.Left
 
     local btnQuickTele = Instance.new("TextButton", island)
     btnQuickTele.Size = UDim2.new(0, 60, 0, 26)
-    btnQuickTele.Position = UDim2.new(0.5, 30, 0.5, -13)
+    btnQuickTele.Position = UDim2.new(0.5, 35, 0.5, -13)
     btnQuickTele.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
     btnQuickTele.Text = "BAY"
     btnQuickTele.TextColor3 = Color3.new(1, 1, 1)
@@ -102,6 +102,15 @@ local function setupUI()
     content.Position = UDim2.new(0, 15, 0, 40)
     content.BackgroundTransparency = 1
     content.Visible = false
+
+    local menuTitle = Instance.new("TextLabel", content)
+    menuTitle.Size = UDim2.new(1, 0, 0, 24)
+    menuTitle.Position = UDim2.new(0, 0, 0, -30)
+    menuTitle.BackgroundTransparency = 1
+    menuTitle.Text = "huongcuto"
+    menuTitle.TextColor3 = Color3.fromRGB(150, 150, 170)
+    menuTitle.Font = Enum.Font.GothamBold
+    menuTitle.TextSize = 14
 
     local uiList = Instance.new("UIListLayout", content)
     uiList.Padding = UDim.new(0, 8)
@@ -177,11 +186,11 @@ local function setupUI()
     local swESP = createToggle("ESP Người Chơi", 5)
     local swInstant = createToggle("Instant Prompt", 6)
 
-    -- RGB LED Loop
+    -- RGB update rate chậm lại (0.2s) để đỡ ngốn CPU
     task.spawn(function()
         local hue = 0
         while gui.Parent do
-            hue = (hue + 0.02) % 1
+            hue = (hue + 0.04) % 1
             local color = Color3.fromHSV(hue, 1, 1)
             for i = 1, #S.RGBStrokes do
                 local stroke = S.RGBStrokes[i]
@@ -189,7 +198,7 @@ local function setupUI()
                     stroke.Color = color
                 end
             end
-            task.wait(0.1) 
+            task.wait(0.2) 
         end
     end)
 
@@ -272,7 +281,6 @@ local function setupUI()
     btnTele.MouseButton1Click:Connect(handleTele)
     btnQuickTele.MouseButton1Click:Connect(handleTele)
 
-    -- ===== FIX HOP SERVER (Yêu cầu > 2 người) =====
     btnHop.MouseButton1Click:Connect(function()
         btnHop.Text = "⏳ ĐANG TÌM..."
         local success, err = pcall(function()
@@ -284,9 +292,7 @@ local function setupUI()
             while not found and tries < 3 do
                 tries = tries + 1
                 local apiUrl = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
-                if cursor ~= "" then
-                    apiUrl = apiUrl .. "&cursor=" .. cursor
-                end
+                if cursor ~= "" then apiUrl = apiUrl .. "&cursor=" .. cursor end
                 
                 local response = game:HttpGet(apiUrl)
                 local data = HttpService:JSONDecode(response)
@@ -294,7 +300,6 @@ local function setupUI()
                 if data and data.data then
                     local validServers = {}
                     for _, server in ipairs(data.data) do
-                        -- ĐIỀU KIỆN MỚI: Phải >= 2 người và phải còn slot trống
                         if server.playing >= 2 and server.playing < (server.maxPlayers - 1) then
                             table.insert(validServers, server.id)
                         end
@@ -308,21 +313,16 @@ local function setupUI()
                         return
                     end
                     
-                    if data.nextPageCursor then
-                        cursor = data.nextPageCursor
-                    else
-                        break
-                    end
+                    if data.nextPageCursor then cursor = data.nextPageCursor else break end
                 end
                 task.wait(0.5)
             end
             
             if not found then
-                btnHop.Text = "❌ KHÔNG CÓ SERVER PHÙ HỢP!"
+                btnHop.Text = "❌ HẾT SERVER TRỐNG!"
                 task.delay(2, function() btnHop.Text = "🌐 HOP CLEAN SERVER" end)
             end
         end)
-        
         if not success then
             btnHop.Text = "❌ LỖI API!"
             task.delay(2, function() btnHop.Text = "🌐 HOP CLEAN SERVER" end)
@@ -346,13 +346,37 @@ local function setupUI()
         swInstant.Text = S.instantEnabled and "ON" or "OFF"
         swInstant.BackgroundColor3 = S.instantEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
     end)
+    
+    -- Cập nhật FPS/MS Real-time (0.25s) - Giảm tải CPU tối đa
+    local frames = 0
+    RunService.RenderStepped:Connect(function()
+        frames = frames + 1
+    end)
+    
+    task.spawn(function()
+        while gui.Parent do
+            task.wait(0.25) -- 4 lần/giây
+            local fps = frames * 4
+            frames = 0
+            local ping = math.floor(player:GetNetworkPing() * 1000)
+            
+            if titleTxt.Visible then
+                local fpsColor = fps >= 30 and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+                local pingColor = ping <= 100 and Color3.fromRGB(50, 255, 50) or (ping <= 200 and Color3.fromRGB(255, 255, 50) or Color3.fromRGB(255, 50, 50))
+                
+                titleTxt.RichText = true
+                titleTxt.Text = string.format('FPS: <font color="rgb(%d,%d,%d)">%d</font> | MS: <font color="rgb(%d,%d,%d)">%d</font>', 
+                    fpsColor.R*255, fpsColor.G*255, fpsColor.B*255, fps,
+                    pingColor.R*255, pingColor.G*255, pingColor.B*255, ping
+                )
+            end
+        end
+    end)
 end
 
 pcall(setupUI)
 
--- ===== 2. CHỨC NĂNG NGẦM =====
-
--- Cache Prompts
+-- ===== 2. CHỨC NĂNG NGẦM (ZERO LAG) =====
 task.spawn(function()
     task.wait(2)
     for _, obj in ipairs(Workspace:GetDescendants()) do
@@ -363,7 +387,28 @@ Workspace.DescendantAdded:Connect(function(obj)
     if obj:IsA("ProximityPrompt") then table.insert(S.Prompts, obj) end
 end)
 
--- Vòng lặp tổng hợp
+-- Dọn rác Prompt và ESP
+task.spawn(function()
+    while task.wait(5) do
+        -- Dọn Prompt đã bị xóa
+        for i = #S.Prompts, 1, -1 do
+            if not S.Prompts[i] or not S.Prompts[i].Parent then
+                table.remove(S.Prompts, i)
+            end
+        end
+        
+        -- Dọn ESP nếu tắt
+        if not S.espEnabled then
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj.Name == "ollieESP_HL" or obj.Name == "ollieESP_BB" then
+                    obj:Destroy()
+                end
+            end
+        end
+    end
+end)
+
+-- Vòng lặp chính (1s/lần)
 task.spawn(function()
     while task.wait(1) do
         pcall(function()
@@ -413,9 +458,7 @@ task.spawn(function()
                                 txt.Parent = bb
                             end
                             local txt = bb:FindFirstChild("ollieESP_TXT")
-                            if txt and txt.Text ~= plr.Name then
-                                txt.Text = plr.Name
-                            end
+                            if txt and txt.Text ~= plr.Name then txt.Text = plr.Name end
                         end
                     end
                 end
@@ -424,7 +467,7 @@ task.spawn(function()
     end
 end)
 
--- Anti-Ragdoll
+-- Anti-Ragdoll (Heartbeat)
 local lastValidCFrame = nil
 local isFrozen = false
 RunService.Heartbeat:Connect(function()
@@ -469,4 +512,4 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("[ollie] Load thành công v20 - Hop > 2 người!")
+print("[ollie] Load thành công v23 - Đã tối ưu Zero Lag!")
