@@ -1,7 +1,7 @@
--- ollie_dynamic_island_pro_v23.lua
--- Tối ưu hóa tối đa: Giảm update rate UI, dọn rác ESP, chống lag tuyệt đối.
+-- ollie_dynamic_island_pro_v27.lua
+-- Thêm tính năng cuộn (ScrollingFrame) cho menu.
 
-print("[ollie] Đang tải Dynamic Island v23 (Zero Lag)...")
+print("[ollie] Đang tải Dynamic Island v27...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -18,10 +18,30 @@ local S = {
     espEnabled = true, 
     instantEnabled = true,
     ragdollEnabled = true,
+    autoTweenEnabled = true,
     isOpen = false,
     RGBStrokes = {},
     Prompts = {}
 }
+
+local function DoTween()
+    if not S.SavedPos or S.isTweening then return end
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    S.isTweening = true
+    local startPos = root.Position
+    local targetPos = S.SavedPos
+    for i = 1, 6 do
+        local c = player.Character
+        local r = c and c:FindFirstChild("HumanoidRootPart")
+        if not r then break end
+        r.CFrame = CFrame.new(startPos:Lerp(targetPos, i / 6))
+        task.wait(0.016)
+    end
+    S.isTweening = false
+end
 
 -- ===== 1. UI SETUP =====
 local function setupUI()
@@ -97,15 +117,21 @@ local function setupUI()
     btnClose.TextSize = 18
     btnClose.Visible = false
 
-    local content = Instance.new("Frame", island)
-    content.Size = UDim2.new(1, -30, 1, -40)
-    content.Position = UDim2.new(0, 15, 0, 40)
+    -- Đổi Frame thành ScrollingFrame
+    local content = Instance.new("ScrollingFrame", island)
+    content.Size = UDim2.new(1, -20, 1, -50)
+    content.Position = UDim2.new(0, 10, 0, 45)
     content.BackgroundTransparency = 1
+    content.BorderSizePixel = 0
+    content.ScrollBarThickness = 2
+    content.ScrollBarImageColor3 = Color3.fromRGB(200, 200, 200)
+    content.CanvasSize = UDim2.new(0, 0, 0, 0)
+    content.ScrollingDirection = Enum.ScrollingDirection.Y
     content.Visible = false
 
     local menuTitle = Instance.new("TextLabel", content)
     menuTitle.Size = UDim2.new(1, 0, 0, 24)
-    menuTitle.Position = UDim2.new(0, 0, 0, -30)
+    menuTitle.Position = UDim2.new(0, 0, 0, 0)
     menuTitle.BackgroundTransparency = 1
     menuTitle.Text = "huongcuto"
     menuTitle.TextColor3 = Color3.fromRGB(150, 150, 170)
@@ -115,7 +141,12 @@ local function setupUI()
     local uiList = Instance.new("UIListLayout", content)
     uiList.Padding = UDim.new(0, 8)
     uiList.SortOrder = Enum.SortOrder.LayoutOrder
-    uiList.VerticalAlignment = Enum.VerticalAlignment.Center
+    uiList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+    -- Tự động cập nhật chiều dài CanvasSize khi thêm nút
+    uiList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        content.CanvasSize = UDim2.new(0, 0, 0, uiList.AbsoluteContentSize.Y + 20)
+    end)
 
     local function createBtn(text, color, layoutOrder)
         local btn = Instance.new("TextButton", content)
@@ -178,15 +209,15 @@ local function setupUI()
         return switch
     end
 
-    local btnSave = createBtn("📍 LƯU VỊ TRÍ", Color3.fromRGB(40, 100, 200), 1)
-    local btnTele = createBtn("🚀 BAY VỀ (0.1s)", Color3.fromRGB(200, 40, 80), 2)
-    local btnHop = createBtn("🌐 HOP CLEAN SERVER", Color3.fromRGB(150, 50, 200), 3)
+    local btnSave = createBtn("📍 LƯU VỊ TRÍ", Color3.fromRGB(40, 100, 200), 2)
+    local btnTele = createBtn("🚀 BAY VỀ (0.1s)", Color3.fromRGB(200, 40, 80), 3)
+    local btnHop = createBtn("🌐 HOP CLEAN SERVER", Color3.fromRGB(150, 50, 200), 4)
     
-    local swRagdoll = createToggle("Anti-Ragdoll (Lock)", 4)
-    local swESP = createToggle("ESP Người Chơi", 5)
-    local swInstant = createToggle("Instant Prompt", 6)
+    local swRagdoll = createToggle("Anti-Ragdoll (Lock)", 5)
+    local swESP = createToggle("ESP Người Chơi", 6)
+    local swInstant = createToggle("Instant Prompt", 7)
+    local swAutoTween = createToggle("Auto Tween Buy/Steal", 8)
 
-    -- RGB update rate chậm lại (0.2s) để đỡ ngốn CPU
     task.spawn(function()
         local hue = 0
         while gui.Parent do
@@ -194,9 +225,7 @@ local function setupUI()
             local color = Color3.fromHSV(hue, 1, 1)
             for i = 1, #S.RGBStrokes do
                 local stroke = S.RGBStrokes[i]
-                if stroke and stroke.Parent then
-                    stroke.Color = color
-                end
+                if stroke and stroke.Parent then stroke.Color = color end
             end
             task.wait(0.2) 
         end
@@ -207,7 +236,8 @@ local function setupUI()
         local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         
         if S.isOpen then
-            local targetSize = UDim2.new(0, 250, 0, 310)
+            -- Kích thước menu (có thể cố định chiều cao, phần dư sẽ cuộn)
+            local targetSize = UDim2.new(0, 250, 0, 320)
             local targetPos = UDim2.new(0.5, -125, 0, 10) 
             
             titleTxt.Visible = false
@@ -259,27 +289,8 @@ local function setupUI()
         end
     end)
 
-    local function handleTele()
-        if S.SavedPos then
-            local char = player.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if not root or S.isTweening then return end
-            
-            S.isTweening = true
-            local startPos = root.Position
-            local targetPos = S.SavedPos
-            for i = 1, 6 do
-                local c = player.Character
-                local r = c and c:FindFirstChild("HumanoidRootPart")
-                if not r then break end
-                r.CFrame = CFrame.new(startPos:Lerp(targetPos, i / 6))
-                task.wait(0.016)
-            end
-            S.isTweening = false
-        end
-    end
-    btnTele.MouseButton1Click:Connect(handleTele)
-    btnQuickTele.MouseButton1Click:Connect(handleTele)
+    btnTele.MouseButton1Click:Connect(DoTween)
+    btnQuickTele.MouseButton1Click:Connect(DoTween)
 
     btnHop.MouseButton1Click:Connect(function()
         btnHop.Text = "⏳ ĐANG TÌM..."
@@ -346,16 +357,18 @@ local function setupUI()
         swInstant.Text = S.instantEnabled and "ON" or "OFF"
         swInstant.BackgroundColor3 = S.instantEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
     end)
-    
-    -- Cập nhật FPS/MS Real-time (0.25s) - Giảm tải CPU tối đa
-    local frames = 0
-    RunService.RenderStepped:Connect(function()
-        frames = frames + 1
+
+    swAutoTween.MouseButton1Click:Connect(function()
+        S.autoTweenEnabled = not S.autoTweenEnabled
+        swAutoTween.Text = S.autoTweenEnabled and "ON" or "OFF"
+        swAutoTween.BackgroundColor3 = S.autoTweenEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
     end)
     
+    local frames = 0
+    RunService.RenderStepped:Connect(function() frames = frames + 1 end)
     task.spawn(function()
         while gui.Parent do
-            task.wait(0.25) -- 4 lần/giây
+            task.wait(0.25)
             local fps = frames * 4
             frames = 0
             local ping = math.floor(player:GetNetworkPing() * 1000)
@@ -376,7 +389,7 @@ end
 
 pcall(setupUI)
 
--- ===== 2. CHỨC NĂNG NGẦM (ZERO LAG) =====
+-- ===== 2. CHỨC NĂNG NGẦM =====
 task.spawn(function()
     task.wait(2)
     for _, obj in ipairs(Workspace:GetDescendants()) do
@@ -387,28 +400,46 @@ Workspace.DescendantAdded:Connect(function(obj)
     if obj:IsA("ProximityPrompt") then table.insert(S.Prompts, obj) end
 end)
 
--- Dọn rác Prompt và ESP
+local function HookPrompt(prompt)
+    if not prompt:IsA("ProximityPrompt") then return end
+    if prompt:GetAttribute("OllieHooked") then return end
+    prompt:SetAttribute("OllieHooked", true)
+    
+    prompt.Triggered:Connect(function(plr)
+        if plr == player and S.autoTweenEnabled then
+            local act = string.lower(prompt.ActionText)
+            if act:find("steal") or act:find("cướp") or act:find("buy") or act:find("mua") then
+                task.spawn(DoTween)
+            end
+        end
+    end)
+end
+
+task.spawn(function()
+    task.wait(2)
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then HookPrompt(obj) end
+    end
+end)
+Workspace.DescendantAdded:Connect(function(obj)
+    if obj:IsA("ProximityPrompt") then HookPrompt(obj) end
+end)
+
 task.spawn(function()
     while task.wait(5) do
-        -- Dọn Prompt đã bị xóa
         for i = #S.Prompts, 1, -1 do
             if not S.Prompts[i] or not S.Prompts[i].Parent then
                 table.remove(S.Prompts, i)
             end
         end
-        
-        -- Dọn ESP nếu tắt
         if not S.espEnabled then
             for _, obj in ipairs(Workspace:GetDescendants()) do
-                if obj.Name == "ollieESP_HL" or obj.Name == "ollieESP_BB" then
-                    obj:Destroy()
-                end
+                if obj.Name == "ollieESP_HL" or obj.Name == "ollieESP_BB" then obj:Destroy() end
             end
         end
     end
 end)
 
--- Vòng lặp chính (1s/lần)
 task.spawn(function()
     while task.wait(1) do
         pcall(function()
@@ -467,7 +498,6 @@ task.spawn(function()
     end
 end)
 
--- Anti-Ragdoll (Heartbeat)
 local lastValidCFrame = nil
 local isFrozen = false
 RunService.Heartbeat:Connect(function()
@@ -512,4 +542,4 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("[ollie] Load thành công v23 - Đã tối ưu Zero Lag!")
+print("[ollie] Load thành công v27 - Menu đã cuộn mượt!")
