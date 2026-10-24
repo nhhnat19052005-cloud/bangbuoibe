@@ -1,0 +1,472 @@
+-- ollie_dynamic_island_pro_v20.lua
+-- Cập nhật điều kiện Hop Server: Từ 2 người trở lên, không vào server 1 mạng.
+
+print("[ollie] Bắt đầu tải script v20...")
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+
+local player = Players.LocalPlayer
+local S = { 
+    SavedPos = nil, 
+    isTweening = false, 
+    espEnabled = true, 
+    instantEnabled = true,
+    ragdollEnabled = true,
+    isOpen = false,
+    RGBStrokes = {},
+    Prompts = {}
+}
+
+-- ===== 1. UI SETUP =====
+local function setupUI()
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "ollieDynamicIsland"
+    gui.ResetOnSpawn = false
+    gui.DisplayOrder = 999
+    gui.IgnoreGuiInset = true
+    pcall(function() gui.Parent = player:WaitForChild("PlayerGui") end)
+    if not gui.Parent then gui.Parent = game:GetService("CoreGui") end
+
+    local shadow = Instance.new("Frame", gui)
+    shadow.Size = UDim2.new(0, 200, 0, 36)
+    shadow.Position = UDim2.new(0.5, -100, 0, 15)
+    shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.BackgroundTransparency = 0.4
+    shadow.BorderSizePixel = 0
+    local shadowCorner = Instance.new("UICorner", shadow)
+    shadowCorner.CornerRadius = UDim.new(1, 0)
+
+    local island = Instance.new("Frame", gui)
+    island.Size = UDim2.new(0, 200, 0, 36)
+    island.Position = UDim2.new(0.5, -100, 0, 10)
+    island.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    island.BorderSizePixel = 0
+    island.ClipsDescendants = true
+    local islandCorner = Instance.new("UICorner", island)
+    islandCorner.CornerRadius = UDim.new(1, 0)
+
+    local islandStroke = Instance.new("UIStroke", island)
+    islandStroke.Color = Color3.fromRGB(255, 0, 128)
+    islandStroke.Thickness = 2
+    islandStroke.Transparency = 0
+    islandStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    table.insert(S.RGBStrokes, islandStroke)
+
+    local gradient = Instance.new("UIGradient", island)
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 50)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(20, 20, 25)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+    })
+    gradient.Rotation = 90
+
+    local titleTxt = Instance.new("TextLabel", island)
+    titleTxt.Size = UDim2.new(0.5, 0, 0, 36)
+    titleTxt.Position = UDim2.new(0, 20, 0, 0)
+    titleTxt.BackgroundTransparency = 1
+    titleTxt.Text = "huongcuto"
+    titleTxt.TextColor3 = Color3.fromRGB(220, 220, 240)
+    titleTxt.Font = Enum.Font.GothamBold
+    titleTxt.TextSize = 14
+    titleTxt.TextXAlignment = Enum.TextXAlignment.Left
+
+    local btnQuickTele = Instance.new("TextButton", island)
+    btnQuickTele.Size = UDim2.new(0, 60, 0, 26)
+    btnQuickTele.Position = UDim2.new(0.5, 30, 0.5, -13)
+    btnQuickTele.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+    btnQuickTele.Text = "BAY"
+    btnQuickTele.TextColor3 = Color3.new(1, 1, 1)
+    btnQuickTele.Font = Enum.Font.GothamBold
+    btnQuickTele.TextSize = 11
+    btnQuickTele.BorderSizePixel = 0
+    Instance.new("UICorner", btnQuickTele).CornerRadius = UDim.new(0, 6)
+
+    local btnClose = Instance.new("TextButton", island)
+    btnClose.Size = UDim2.new(0, 30, 0, 30)
+    btnClose.Position = UDim2.new(1, -35, 0, 5)
+    btnClose.BackgroundTransparency = 1
+    btnClose.Text = "✕"
+    btnClose.TextColor3 = Color3.fromRGB(255, 100, 100)
+    btnClose.Font = Enum.Font.GothamBold
+    btnClose.TextSize = 18
+    btnClose.Visible = false
+
+    local content = Instance.new("Frame", island)
+    content.Size = UDim2.new(1, -30, 1, -40)
+    content.Position = UDim2.new(0, 15, 0, 40)
+    content.BackgroundTransparency = 1
+    content.Visible = false
+
+    local uiList = Instance.new("UIListLayout", content)
+    uiList.Padding = UDim.new(0, 8)
+    uiList.SortOrder = Enum.SortOrder.LayoutOrder
+    uiList.VerticalAlignment = Enum.VerticalAlignment.Center
+
+    local function createBtn(text, color, layoutOrder)
+        local btn = Instance.new("TextButton", content)
+        btn.Size = UDim2.new(1, 0, 0, 36)
+        btn.BackgroundColor3 = color
+        btn.BorderSizePixel = 0
+        btn.LayoutOrder = layoutOrder
+        btn.Text = text
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 13
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+        
+        local btnStroke = Instance.new("UIStroke", btn)
+        btnStroke.Color = Color3.fromRGB(255, 0, 128)
+        btnStroke.Thickness = 1.5
+        btnStroke.Transparency = 0
+        btnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        table.insert(S.RGBStrokes, btnStroke)
+        
+        return btn
+    end
+
+    local function createToggle(text, layoutOrder)
+        local frame = Instance.new("Frame", content)
+        frame.Size = UDim2.new(1, 0, 0, 34)
+        frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+        frame.BorderSizePixel = 0
+        frame.LayoutOrder = layoutOrder
+        Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+        
+        local frameStroke = Instance.new("UIStroke", frame)
+        frameStroke.Color = Color3.fromRGB(255, 0, 128)
+        frameStroke.Thickness = 1.5
+        frameStroke.Transparency = 0
+        frameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        table.insert(S.RGBStrokes, frameStroke)
+
+        local lbl = Instance.new("TextLabel", frame)
+        lbl.Size = UDim2.new(1, -60, 1, 0)
+        lbl.Position = UDim2.new(0, 10, 0, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = text
+        lbl.TextColor3 = Color3.fromRGB(200, 200, 210)
+        lbl.Font = Enum.Font.Gotham
+        lbl.TextSize = 12
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local switch = Instance.new("TextButton", frame)
+        switch.Size = UDim2.new(0, 44, 0, 22)
+        switch.Position = UDim2.new(1, -52, 0.5, -11)
+        switch.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
+        switch.Text = "ON"
+        switch.TextColor3 = Color3.new(1, 1, 1)
+        switch.Font = Enum.Font.GothamBold
+        switch.TextSize = 10
+        switch.BorderSizePixel = 0
+        Instance.new("UICorner", switch).CornerRadius = UDim.new(1, 0)
+        
+        return switch
+    end
+
+    local btnSave = createBtn("📍 LƯU VỊ TRÍ", Color3.fromRGB(40, 100, 200), 1)
+    local btnTele = createBtn("🚀 BAY VỀ (0.1s)", Color3.fromRGB(200, 40, 80), 2)
+    local btnHop = createBtn("🌐 HOP CLEAN SERVER", Color3.fromRGB(150, 50, 200), 3)
+    
+    local swRagdoll = createToggle("Anti-Ragdoll (Lock)", 4)
+    local swESP = createToggle("ESP Người Chơi", 5)
+    local swInstant = createToggle("Instant Prompt", 6)
+
+    -- RGB LED Loop
+    task.spawn(function()
+        local hue = 0
+        while gui.Parent do
+            hue = (hue + 0.02) % 1
+            local color = Color3.fromHSV(hue, 1, 1)
+            for i = 1, #S.RGBStrokes do
+                local stroke = S.RGBStrokes[i]
+                if stroke and stroke.Parent then
+                    stroke.Color = color
+                end
+            end
+            task.wait(0.1) 
+        end
+    end)
+
+    local function toggleIsland()
+        S.isOpen = not S.isOpen
+        local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        
+        if S.isOpen then
+            local targetSize = UDim2.new(0, 250, 0, 310)
+            local targetPos = UDim2.new(0.5, -125, 0, 10) 
+            
+            titleTxt.Visible = false
+            btnQuickTele.Visible = false
+            btnClose.Visible = true
+            content.Visible = true
+            
+            TweenService:Create(island, tweenInfo, {Size = targetSize, Position = targetPos}):Play()
+            TweenService:Create(islandCorner, tweenInfo, {CornerRadius = UDim.new(0, 24)}):Play()
+            TweenService:Create(shadow, tweenInfo, {Size = targetSize, Position = UDim2.new(0.5, -125, 0, 15)}):Play()
+            TweenService:Create(shadowCorner, tweenInfo, {CornerRadius = UDim.new(0, 24)}):Play()
+        else
+            local targetSize = UDim2.new(0, 200, 0, 36)
+            local targetPos = UDim2.new(0.5, -100, 0, 10)
+            
+            content.Visible = false
+            btnClose.Visible = false
+            
+            TweenService:Create(island, tweenInfo, {Size = targetSize, Position = targetPos}):Play()
+            TweenService:Create(islandCorner, tweenInfo, {CornerRadius = UDim.new(1, 0)}):Play()
+            TweenService:Create(shadow, tweenInfo, {Size = targetSize, Position = UDim2.new(0.5, -100, 0, 15)}):Play()
+            TweenService:Create(shadowCorner, tweenInfo, {CornerRadius = UDim.new(1, 0)}):Play()
+            
+            task.delay(0.25, function()
+                titleTxt.Visible = true
+                btnQuickTele.Visible = true
+            end)
+        end
+    end
+
+    island.InputBegan:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+            if not S.isOpen then toggleIsland() end
+        end
+    end)
+    btnClose.MouseButton1Click:Connect(toggleIsland)
+
+    btnSave.MouseButton1Click:Connect(function()
+        local c = player.Character
+        local root = c and c:FindFirstChild("HumanoidRootPart")
+        if root then
+            S.SavedPos = root.Position
+            btnSave.Text = "✅ ĐÃ LƯU!"
+            btnSave.BackgroundColor3 = Color3.fromRGB(40, 180, 80)
+            task.delay(2, function()
+                btnSave.Text = "📍 LƯU VỊ TRÍ"
+                btnSave.BackgroundColor3 = Color3.fromRGB(40, 100, 200)
+            end)
+        end
+    end)
+
+    local function handleTele()
+        if S.SavedPos then
+            local char = player.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if not root or S.isTweening then return end
+            
+            S.isTweening = true
+            local startPos = root.Position
+            local targetPos = S.SavedPos
+            for i = 1, 6 do
+                local c = player.Character
+                local r = c and c:FindFirstChild("HumanoidRootPart")
+                if not r then break end
+                r.CFrame = CFrame.new(startPos:Lerp(targetPos, i / 6))
+                task.wait(0.016)
+            end
+            S.isTweening = false
+        end
+    end
+    btnTele.MouseButton1Click:Connect(handleTele)
+    btnQuickTele.MouseButton1Click:Connect(handleTele)
+
+    -- ===== FIX HOP SERVER (Yêu cầu > 2 người) =====
+    btnHop.MouseButton1Click:Connect(function()
+        btnHop.Text = "⏳ ĐANG TÌM..."
+        local success, err = pcall(function()
+            local placeId = game.PlaceId
+            local found = false
+            local cursor = ""
+            local tries = 0
+            
+            while not found and tries < 3 do
+                tries = tries + 1
+                local apiUrl = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+                if cursor ~= "" then
+                    apiUrl = apiUrl .. "&cursor=" .. cursor
+                end
+                
+                local response = game:HttpGet(apiUrl)
+                local data = HttpService:JSONDecode(response)
+                
+                if data and data.data then
+                    local validServers = {}
+                    for _, server in ipairs(data.data) do
+                        -- ĐIỀU KIỆN MỚI: Phải >= 2 người và phải còn slot trống
+                        if server.playing >= 2 and server.playing < (server.maxPlayers - 1) then
+                            table.insert(validServers, server.id)
+                        end
+                    end
+                    
+                    if #validServers > 0 then
+                        local chosenId = validServers[math.random(1, #validServers)]
+                        btnHop.Text = "⏳ ĐANG CHUYỂN..."
+                        TeleportService:TeleportToPlaceInstance(placeId, chosenId, player)
+                        found = true
+                        return
+                    end
+                    
+                    if data.nextPageCursor then
+                        cursor = data.nextPageCursor
+                    else
+                        break
+                    end
+                end
+                task.wait(0.5)
+            end
+            
+            if not found then
+                btnHop.Text = "❌ KHÔNG CÓ SERVER PHÙ HỢP!"
+                task.delay(2, function() btnHop.Text = "🌐 HOP CLEAN SERVER" end)
+            end
+        end)
+        
+        if not success then
+            btnHop.Text = "❌ LỖI API!"
+            task.delay(2, function() btnHop.Text = "🌐 HOP CLEAN SERVER" end)
+        end
+    end)
+
+    swRagdoll.MouseButton1Click:Connect(function()
+        S.ragdollEnabled = not S.ragdollEnabled
+        swRagdoll.Text = S.ragdollEnabled and "ON" or "OFF"
+        swRagdoll.BackgroundColor3 = S.ragdollEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
+    end)
+
+    swESP.MouseButton1Click:Connect(function()
+        S.espEnabled = not S.espEnabled
+        swESP.Text = S.espEnabled and "ON" or "OFF"
+        swESP.BackgroundColor3 = S.espEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
+    end)
+
+    swInstant.MouseButton1Click:Connect(function()
+        S.instantEnabled = not S.instantEnabled
+        swInstant.Text = S.instantEnabled and "ON" or "OFF"
+        swInstant.BackgroundColor3 = S.instantEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
+    end)
+end
+
+pcall(setupUI)
+
+-- ===== 2. CHỨC NĂNG NGẦM =====
+
+-- Cache Prompts
+task.spawn(function()
+    task.wait(2)
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then table.insert(S.Prompts, obj) end
+    end
+end)
+Workspace.DescendantAdded:Connect(function(obj)
+    if obj:IsA("ProximityPrompt") then table.insert(S.Prompts, obj) end
+end)
+
+-- Vòng lặp tổng hợp
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function()
+            if S.instantEnabled then
+                for _, prompt in ipairs(S.Prompts) do
+                    if prompt and prompt.Parent and prompt.Enabled and prompt.HoldDuration > 0 then
+                        prompt.HoldDuration = 0
+                    end
+                end
+            end
+
+            if S.espEnabled then
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr ~= player and plr.Character then
+                        local pChar = plr.Character
+                        local hl = pChar:FindFirstChild("ollieESP_HL")
+                        if not hl then
+                            hl = Instance.new("Highlight")
+                            hl.Name = "ollieESP_HL"
+                            hl.FillColor = Color3.fromRGB(0, 255, 200) 
+                            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            hl.FillTransparency = 0.5
+                            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                            hl.Parent = pChar
+                        end
+
+                        local head = pChar:FindFirstChild("Head")
+                        if head then
+                            local bb = head:FindFirstChild("ollieESP_BB")
+                            if not bb then
+                                bb = Instance.new("BillboardGui")
+                                bb.Name = "ollieESP_BB"
+                                bb.Size = UDim2.new(0, 120, 0, 24)
+                                bb.StudsOffset = Vector3.new(0, 2.5, 0)
+                                bb.AlwaysOnTop = true
+                                bb.Adornee = head
+                                bb.Parent = head
+                                local txt = Instance.new("TextLabel", bb)
+                                txt.Name = "ollieESP_TXT"
+                                txt.Size = UDim2.new(1, 0, 1, 0)
+                                txt.BackgroundTransparency = 1
+                                txt.TextColor3 = Color3.fromRGB(0, 255, 200)
+                                txt.TextStrokeTransparency = 0
+                                txt.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                                txt.Font = Enum.Font.GothamBold
+                                txt.TextSize = 13
+                                txt.Parent = bb
+                            end
+                            local txt = bb:FindFirstChild("ollieESP_TXT")
+                            if txt and txt.Text ~= plr.Name then
+                                txt.Text = plr.Name
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- Anti-Ragdoll
+local lastValidCFrame = nil
+local isFrozen = false
+RunService.Heartbeat:Connect(function()
+    if not S.ragdollEnabled then return end
+    local char = player.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not root then return end
+
+    if not isFrozen and not hum.PlatformStand and hum:GetState() ~= Enum.HumanoidStateType.Physics then
+        lastValidCFrame = root.CFrame
+    end
+
+    if hum.PlatformStand or hum:GetState() == Enum.HumanoidStateType.Physics then
+        if not isFrozen and lastValidCFrame then
+            isFrozen = true
+            root.Anchored = true
+            
+            task.spawn(function()
+                local lockCFrame = CFrame.new(lastValidCFrame.Position, lastValidCFrame.Position + lastValidCFrame.LookVector)
+                root.CFrame = lockCFrame
+                hum.PlatformStand = false
+                hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+                
+                local startTime = tick()
+                while tick() - startTime < 0.5 do
+                    if not root or not root.Parent then break end
+                    root.CFrame = lockCFrame
+                    root.Velocity = Vector3.zero
+                    root.RotVelocity = Vector3.zero
+                    task.wait()
+                end
+                
+                if root and root.Parent then
+                    root.Anchored = false
+                    hum:ChangeState(Enum.HumanoidStateType.Running)
+                end
+                isFrozen = false
+            end)
+        end
+    end
+end)
+
+print("[ollie] Load thành công v20 - Hop > 2 người!")
