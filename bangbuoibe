@@ -1,5 +1,5 @@
 -- bangbuoibe.lua
--- Hop server không dính bạn bè. Speed auto 100. Full chức năng.
+-- Fix Hop Server: Bọc pcall chống lỗi API, thêm fallback an toàn.
 
 print("[ollie] Đang tải bangbuoibe...")
 
@@ -124,9 +124,19 @@ local function setupUI()
     btnClose.TextSize = 18
     btnClose.Visible = false
 
+    local menuName = Instance.new("TextLabel", island)
+    menuName.Size = UDim2.new(1, 0, 0, 24)
+    menuName.Position = UDim2.new(0, 0, 0, 38)
+    menuName.BackgroundTransparency = 1
+    menuName.Text = "bangbuoibe"
+    menuName.TextColor3 = Color3.fromRGB(200, 200, 220)
+    menuName.Font = Enum.Font.GothamBold
+    menuName.TextSize = 16
+    menuName.Visible = false
+
     local content = Instance.new("ScrollingFrame", island)
-    content.Size = UDim2.new(1, -20, 1, -50)
-    content.Position = UDim2.new(0, 10, 0, 45)
+    content.Size = UDim2.new(1, -20, 1, -70)
+    content.Position = UDim2.new(0, 10, 0, 65)
     content.BackgroundTransparency = 1
     content.BorderSizePixel = 0
     content.ScrollBarThickness = 2
@@ -289,7 +299,9 @@ local function setupUI()
             hue = (hue + 0.04) % 1
             local color = Color3.fromHSV(hue, 1, 1)
             for i = 1, #S.RGBStrokes do
-                if S.RGBStrokes[i] and S.RGBStrokes[i].Parent then S.RGBStrokes[i].Color = color end
+                if S.RGBStrokes[i] and S.RGBStrokes[i].Parent and S.RGBStrokes[i]:IsA("UIStroke") then 
+                    S.RGBStrokes[i].Color = color 
+                end
             end
             task.wait(0.2) 
         end
@@ -299,12 +311,12 @@ local function setupUI()
         S.isOpen = not S.isOpen
         local tw = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         if S.isOpen then
-            titleTxt.Visible = false; swQuickTween.Visible = false; btnQuickVoid.Visible = false; btnClose.Visible = true; content.Visible = true
-            TweenService:Create(island, tw, {Size = UDim2.new(0, 350, 0, 400), Position = UDim2.new(0.5, -175, 0, 10)}):Play()
+            titleTxt.Visible = false; swQuickTween.Visible = false; btnQuickVoid.Visible = false; btnClose.Visible = true; content.Visible = true; menuName.Visible = true
+            TweenService:Create(island, tw, {Size = UDim2.new(0, 350, 0, 420), Position = UDim2.new(0.5, -175, 0, 10)}):Play()
             TweenService:Create(islandCorner, tw, {CornerRadius = UDim.new(0, 24)}):Play()
-            TweenService:Create(shadow, tw, {Size = UDim2.new(0, 350, 0, 400), Position = UDim2.new(0.5, -175, 0, 15)}):Play()
+            TweenService:Create(shadow, tw, {Size = UDim2.new(0, 350, 0, 420), Position = UDim2.new(0.5, -175, 0, 15)}):Play()
         else
-            content.Visible = false; btnClose.Visible = false
+            content.Visible = false; btnClose.Visible = false; menuName.Visible = false
             TweenService:Create(island, tw, {Size = UDim2.new(0, 220, 0, 40), Position = UDim2.new(0.5, -110, 0, 10)}):Play()
             TweenService:Create(islandCorner, tw, {CornerRadius = UDim.new(1, 0)}):Play()
             TweenService:Create(shadow, tw, {Size = UDim2.new(0, 220, 0, 40), Position = UDim2.new(0.5, -110, 0, 15)}):Play()
@@ -366,72 +378,86 @@ local function setupUI()
     swAutoTweenInside.MouseButton1Click:Connect(ToggleAutoTween)
 
     btnHop.MouseButton1Click:Connect(function()
-        btnHop.Text = "⏳ ĐANG QUÉT BẠN BÈ..."
+        btnHop.Text = "⏳ ĐANG TÌM..."
+        
+        -- Hàm lấy data server, bọc pcall an toàn
+        local function getServers(placeId)
+            local servers = {}
+            local ok, result = pcall(function()
+                local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+                return HttpService:JSONDecode(game:HttpGet(url))
+            end)
+            if ok and result and result.data then
+                for _, sv in ipairs(result.data) do
+                    if sv.playing < sv.maxPlayers then
+                        table.insert(servers, sv)
+                    end
+                end
+            end
+            return servers
+        end
+
         task.spawn(function()
+            local availableServers = getServers(game.PlaceId)
+            if #availableServers == 0 then
+                btnHop.Text = "❌ HẾT SERVER TRỐNG!"
+                task.delay(2, function() btnHop.Text = "🌐 HOP CLEAN SERVER" end)
+                return
+            end
+
+            btnHop.Text = "⏳ ĐANG QUÉT BẠN BÈ..."
+            local friendsOnline = {}
+            
+            -- Thử lấy danh sách bạn bè, nếu lỗi thì kệ
             pcall(function()
-                -- 1. Lấy danh sách bạn bè đang online
-                local friendsOnline = {}
-                local success, pages = pcall(function() return Players:GetFriendsAsync(player.UserId) end)
-                if success and pages then
-                    while true do
-                        local currentPage = pages:GetCurrentPage()
-                        for _, item in ipairs(currentPage) do
-                            if item.IsOnline then
-                                friendsOnline[item.Id] = true
-                            end
-                        end
-                        if pages.IsFinished then break end
-                        pages:AdvanceToNextPageAsync()
-                    end
-                end
-
-                btnHop.Text = "⏳ ĐANG TÌM SERVER..."
-                
-                -- 2. Lấy danh sách server
-                local apiUrl = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
-                local data = HttpService:JSONDecode(game:HttpGet(apiUrl))
-                local validServer = nil
-                local fallbackServer = nil
-
-                if data and data.data then
-                    for _, sv in ipairs(data.data) do
-                        if sv.playing < sv.maxPlayers then
-                            -- Lưu server dự phòng (nếu API ko lấy được ds bạn bè)
-                            if not fallbackServer then fallbackServer = sv.id end
-                            
-                            -- Check xem server này có chứa bạn bè không (Dùng API check player)
-                            local checkUrl = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/" .. sv.id
-                            local checkData = pcall(function() return HttpService:JSONDecode(game:HttpGet(checkUrl)) end)
-                            
-                            local hasFriend = false
-                            if checkData then
-                                for _, p in ipairs(checkData.data) do
-                                    if friendsOnline[p.id] then
-                                        hasFriend = true
-                                        break
-                                    end
-                                end
-                            end
-
-                            if not hasFriend then
-                                validServer = sv.id
-                                break
-                            end
+                local pages = Players:GetFriendsAsync(player.UserId)
+                while true do
+                    local currentPage = pages:GetCurrentPage()
+                    for _, item in ipairs(currentPage) do
+                        if item.IsOnline then
+                            friendsOnline[item.Id] = true
                         end
                     end
-                end
-
-                if validServer then
-                    btnHop.Text = "⏳ ĐANG CHUYỂN..."
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, validServer, player)
-                elseif fallbackServer then
-                    btnHop.Text = "⏳ KHÔNG RÕ BẠN BÈ, CHUYỂN..."
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, fallbackServer, player)
-                else
-                    btnHop.Text = "❌ HẾT SERVER!"
-                    task.delay(2, function() btnHop.Text = "🌐 HOP CLEAN SERVER" end)
+                    if pages.IsFinished then break end
+                    pages:AdvanceToNextPageAsync()
                 end
             end)
+
+            local chosenServer = nil
+            local fallbackServer = availableServers[1].id
+
+            -- Duyệt qua danh sách server để tìm server không có bạn
+            for _, sv in ipairs(availableServers) do
+                local hasFriend = false
+                
+                -- Thử check server đó xem có ai đang chơi không (dùng API)
+                pcall(function()
+                    local checkUrl = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/" .. sv.id
+                    local checkData = HttpService:JSONDecode(game:HttpGet(checkUrl))
+                    for _, p in ipairs(checkData.data) do
+                        if friendsOnline[p.id] then
+                            hasFriend = true
+                            break
+                        end
+                    end
+                end)
+
+                if not hasFriend then
+                    chosenServer = sv.id
+                    break
+                end
+            end
+
+            if chosenServer then
+                btnHop.Text = "⏳ ĐANG CHUYỂN..."
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, chosenServer, player)
+            elseif fallbackServer then
+                btnHop.Text = "⏳ CHUYỂN NGẪU NHIÊN..."
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, fallbackServer, player)
+            else
+                btnHop.Text = "❌ LỖI HOP!"
+                task.delay(2, function() btnHop.Text = "🌐 HOP CLEAN SERVER" end)
+            end
         end)
     end)
 
