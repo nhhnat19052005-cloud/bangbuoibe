@@ -1,5 +1,5 @@
 -- bangbuoibe.lua
--- Fix Hop Server: Bọc pcall chống lỗi API, thêm fallback an toàn.
+-- Hop server > 2 người. Tự động xóa UI cũ khi chạy lại. Speed 70. Fix Auto Tween.
 
 print("[ollie] Đang tải bangbuoibe...")
 
@@ -14,11 +14,32 @@ local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
+
+-- DỌN DẸP UI CŨ (CHỐNG ĐÈ)
+if gethui then
+    local hui = gethui()
+    if hui then
+        local oldGui = hui:FindFirstChild("ollieUI")
+        if oldGui then oldGui:Destroy() end
+    end
+end
+local oldGui = player:WaitForChild("PlayerGui"):FindFirstChild("ollieUI")
+if oldGui then oldGui:Destroy() end
+local coreOldGui = game:GetService("CoreGui"):FindFirstChild("ollieUI")
+if coreOldGui then coreOldGui:Destroy() end
+
+-- Xóa các ID Highlight/ESP cũ
+for _, obj in ipairs(Workspace:GetDescendants()) do
+    if obj.Name == "ollieESP_HL" or obj.Name == "ollieESP_BB" or obj.Name == "ollieFake_HL" then
+        pcall(function() obj:Destroy() end)
+    end
+end
+
 local S = { 
     SavedPos = nil, isTweening = false, espEnabled = true, instantEnabled = true,
     ragdollEnabled = true, autoTweenEnabled = true, fakeEspEnabled = true,
     isOpen = false, RGBStrokes = {},
-    speedEnabled = true, speedValue = 100, speedMax = 500
+    speedEnabled = true, speedValue = 70, speedMax = 500
 }
 
 local VOID_POS = Vector3.new(-1.20, -113.39, -185.98)
@@ -39,6 +60,24 @@ local function isFakeEggChar(char)
         end
     end
     return false
+end
+
+local function DoTween()
+    if not S.SavedPos or S.isTweening then return end
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    S.isTweening = true
+    local startPos = root.Position
+    task.spawn(function()
+        for i = 1, 6 do
+            local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+            if not r then break end
+            r.CFrame = CFrame.new(startPos:Lerp(S.SavedPos, i / 6))
+            task.wait(0.016)
+        end
+        S.isTweening = false
+    end)
 end
 
 local function setupUI()
@@ -210,7 +249,7 @@ local function setupUI()
     local btnSave = createBtn("📍 LƯU VỊ TRÍ", Color3.fromRGB(40, 100, 200), 2)
     local btnTele = createBtn("🚀 BAY VỀ (0.1s)", Color3.fromRGB(200, 40, 80), 3)
     local btnVoidMenu = createBtn("☠️ TELE XUỐNG VOID", Color3.fromRGB(120, 20, 20), 4)
-    local btnHop = createBtn("🌐 HOP CLEAN SERVER", Color3.fromRGB(150, 50, 200), 5)
+    local btnHop = createBtn("🌐 HOP SERVER (>2 NGƯỜI)", Color3.fromRGB(150, 50, 200), 5)
     local swRagdoll = createToggle("Anti-Ragdoll", 6)
     local swESP = createToggle("ESP Người Chơi", 7)
     local swFakeESP = createToggle("ESP Fake Egg", 8)
@@ -339,23 +378,6 @@ local function setupUI()
         end
     end)
 
-    local function DoTween()
-        if not S.SavedPos or S.isTweening then return end
-        local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-        S.isTweening = true
-        local startPos = root.Position
-        task.spawn(function()
-            for i = 1, 6 do
-                local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                if not r then break end
-                r.CFrame = CFrame.new(startPos:Lerp(S.SavedPos, i / 6))
-                task.wait(0.016)
-            end
-            S.isTweening = false
-        end)
-    end
-
     local function DoVoid()
         local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if root then
@@ -380,7 +402,6 @@ local function setupUI()
     btnHop.MouseButton1Click:Connect(function()
         btnHop.Text = "⏳ ĐANG TÌM..."
         
-        -- Hàm lấy data server, bọc pcall an toàn
         local function getServers(placeId)
             local servers = {}
             local ok, result = pcall(function()
@@ -389,7 +410,7 @@ local function setupUI()
             end)
             if ok and result and result.data then
                 for _, sv in ipairs(result.data) do
-                    if sv.playing < sv.maxPlayers then
+                    if sv.playing >= 2 and sv.playing < sv.maxPlayers then
                         table.insert(servers, sv)
                     end
                 end
@@ -400,15 +421,14 @@ local function setupUI()
         task.spawn(function()
             local availableServers = getServers(game.PlaceId)
             if #availableServers == 0 then
-                btnHop.Text = "❌ HẾT SERVER TRỐNG!"
-                task.delay(2, function() btnHop.Text = "🌐 HOP CLEAN SERVER" end)
+                btnHop.Text = "❌ HẾT SERVER ĐÔNG!"
+                task.delay(2, function() btnHop.Text = "🌐 HOP SERVER (>2 NGƯỜI)" end)
                 return
             end
 
             btnHop.Text = "⏳ ĐANG QUÉT BẠN BÈ..."
             local friendsOnline = {}
             
-            -- Thử lấy danh sách bạn bè, nếu lỗi thì kệ
             pcall(function()
                 local pages = Players:GetFriendsAsync(player.UserId)
                 while true do
@@ -426,11 +446,9 @@ local function setupUI()
             local chosenServer = nil
             local fallbackServer = availableServers[1].id
 
-            -- Duyệt qua danh sách server để tìm server không có bạn
             for _, sv in ipairs(availableServers) do
                 local hasFriend = false
                 
-                -- Thử check server đó xem có ai đang chơi không (dùng API)
                 pcall(function()
                     local checkUrl = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/" .. sv.id
                     local checkData = HttpService:JSONDecode(game:HttpGet(checkUrl))
@@ -456,7 +474,7 @@ local function setupUI()
                 TeleportService:TeleportToPlaceInstance(game.PlaceId, fallbackServer, player)
             else
                 btnHop.Text = "❌ LỖI HOP!"
-                task.delay(2, function() btnHop.Text = "🌐 HOP CLEAN SERVER" end)
+                task.delay(2, function() btnHop.Text = "🌐 HOP SERVER (>2 NGƯỜI)" end)
             end
         end)
     end)
@@ -496,20 +514,7 @@ local function HookPrompt(prompt)
         if plr == player then
             local act = string.lower(prompt.ActionText)
             if S.autoTweenEnabled and (act:find("buy") or act:find("mua") or act:find("steal") or act:find("cướp")) then
-                if S.SavedPos then
-                    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                    if root then
-                        local startPos = root.Position
-                        task.spawn(function()
-                            for i = 1, 6 do
-                                local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                                if not r then break end
-                                r.CFrame = CFrame.new(startPos:Lerp(S.SavedPos, i / 6))
-                                task.wait(0.016)
-                            end
-                        end)
-                    end
-                end
+                DoTween()
             end
         end
     end)
