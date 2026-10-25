@@ -1,7 +1,7 @@
--- ollie_dynamic_island_pro_v48.lua
--- Thu gọn Island, dời nút TWEEN và VOID sát lề phải.
+-- bangbuoibe.lua
+-- Hop server không dính bạn bè. Speed auto 100. Full chức năng.
 
-print("[ollie] Đang tải Dynamic Island v48...")
+print("[ollie] Đang tải bangbuoibe...")
 
 local ok, err = pcall(function()
 
@@ -17,7 +17,8 @@ local player = Players.LocalPlayer
 local S = { 
     SavedPos = nil, isTweening = false, espEnabled = true, instantEnabled = true,
     ragdollEnabled = true, autoTweenEnabled = true, fakeEspEnabled = true,
-    isOpen = false, RGBStrokes = {}
+    isOpen = false, RGBStrokes = {},
+    speedEnabled = true, speedValue = 100, speedMax = 500
 }
 
 local VOID_POS = Vector3.new(-1.20, -113.39, -185.98)
@@ -50,7 +51,6 @@ local function setupUI()
     if not gui.Parent then pcall(function() gui.Parent = player:WaitForChild("PlayerGui") end) end
     if not gui.Parent then gui.Parent = game:GetService("CoreGui") end
 
-    -- Thu gọn còn 220
     local shadow = Instance.new("Frame", gui)
     shadow.Size = UDim2.new(0, 220, 0, 40)
     shadow.Position = UDim2.new(0.5, -110, 0, 15)
@@ -82,7 +82,6 @@ local function setupUI()
     })
     gradient.Rotation = 90
 
-    -- 1. FPS Label (Bên trái)
     local titleTxt = Instance.new("TextLabel", island)
     titleTxt.Size = UDim2.new(0, 85, 0, 40)
     titleTxt.Position = UDim2.new(0, 10, 0, 0)
@@ -93,7 +92,6 @@ local function setupUI()
     titleTxt.TextSize = 10
     titleTxt.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- 2. Thanh Gạt Tween (Dời sát phải)
     local swQuickTween = Instance.new("TextButton", island)
     swQuickTween.Size = UDim2.new(0, 45, 0, 24)
     swQuickTween.Position = UDim2.new(0, 110, 0.5, -12)
@@ -105,7 +103,6 @@ local function setupUI()
     swQuickTween.BorderSizePixel = 0
     Instance.new("UICorner", swQuickTween).CornerRadius = UDim.new(1, 0)
 
-    -- 3. Nút VOID (Dời sát phải)
     local btnQuickVoid = Instance.new("TextButton", island)
     btnQuickVoid.Size = UDim2.new(0, 45, 0, 24)
     btnQuickVoid.Position = UDim2.new(0, 160, 0.5, -12)
@@ -127,7 +124,6 @@ local function setupUI()
     btnClose.TextSize = 18
     btnClose.Visible = false
 
-    -- MENU BÊN TRONG
     local content = Instance.new("ScrollingFrame", island)
     content.Size = UDim2.new(1, -20, 1, -50)
     content.Position = UDim2.new(0, 10, 0, 45)
@@ -204,12 +200,88 @@ local function setupUI()
     local btnSave = createBtn("📍 LƯU VỊ TRÍ", Color3.fromRGB(40, 100, 200), 2)
     local btnTele = createBtn("🚀 BAY VỀ (0.1s)", Color3.fromRGB(200, 40, 80), 3)
     local btnVoidMenu = createBtn("☠️ TELE XUỐNG VOID", Color3.fromRGB(120, 20, 20), 4)
-    local btnHop = createBtn("🌐 HOP SERVER", Color3.fromRGB(150, 50, 200), 5)
+    local btnHop = createBtn("🌐 HOP CLEAN SERVER", Color3.fromRGB(150, 50, 200), 5)
     local swRagdoll = createToggle("Anti-Ragdoll", 6)
     local swESP = createToggle("ESP Người Chơi", 7)
     local swFakeESP = createToggle("ESP Fake Egg", 8)
     local swAutoTweenInside = createToggle("Auto Tween Buy/Steal", 9)
     local swInstant = createToggle("Instant Prompt", 10)
+    
+    local speedFrame = Instance.new("Frame", content)
+    speedFrame.Size = UDim2.new(1, 0, 0, 34)
+    speedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    speedFrame.BorderSizePixel = 0
+    speedFrame.LayoutOrder = 11
+    Instance.new("UICorner", speedFrame).CornerRadius = UDim.new(0, 10)
+    local s = Instance.new("UIStroke", speedFrame)
+    s.Color = Color3.fromRGB(255, 0, 128)
+    s.Thickness = 1.5
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    table.insert(S.RGBStrokes, s)
+
+    local speedLbl = Instance.new("TextLabel", speedFrame)
+    speedLbl.Size = UDim2.new(0.5, 0, 1, 0)
+    speedLbl.Position = UDim2.new(0, 10, 0, 0)
+    speedLbl.BackgroundTransparency = 1
+    speedLbl.Text = "Speed: " .. S.speedValue
+    speedLbl.TextColor3 = Color3.fromRGB(200, 200, 210)
+    speedLbl.Font = Enum.Font.GothamBold
+    speedLbl.TextSize = 12
+    speedLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+    local function createSpeedBtn(text, posX, bgColor)
+        local b = Instance.new("TextButton", speedFrame)
+        b.Size = UDim2.new(0, 30, 0, 22)
+        b.Position = UDim2.new(0, posX, 0.5, -11)
+        b.BackgroundColor3 = bgColor
+        b.Text = text
+        b.TextColor3 = Color3.new(1, 1, 1)
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 12
+        b.BorderSizePixel = 0
+        Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+        return b
+    end
+
+    local btnSpdDown = createSpeedBtn("-", 110, Color3.fromRGB(200, 50, 50))
+    local btnSpdUp = createSpeedBtn("+", 180, Color3.fromRGB(50, 180, 50))
+    local btnSpdToggle = createSpeedBtn(S.speedEnabled and "ON" or "OFF", 145, S.speedEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100))
+
+    local function updateSpeedUI()
+        speedLbl.Text = "Speed: " .. S.speedValue
+        btnSpdToggle.Text = S.speedEnabled and "ON" or "OFF"
+        btnSpdToggle.BackgroundColor3 = S.speedEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
+    end
+
+    btnSpdDown.MouseButton1Click:Connect(function()
+        S.speedValue = math.max(16, S.speedValue - 10)
+        updateSpeedUI()
+    end)
+    btnSpdUp.MouseButton1Click:Connect(function()
+        S.speedValue = math.min(S.speedMax, S.speedValue + 10)
+        updateSpeedUI()
+    end)
+    btnSpdToggle.MouseButton1Click:Connect(function()
+        S.speedEnabled = not S.speedEnabled
+        updateSpeedUI()
+        if not S.speedEnabled then
+            local char = player.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.WalkSpeed = 16 end
+        end
+    end)
+
+    task.spawn(function()
+        while task.wait(0.1) do
+            if S.speedEnabled then
+                local char = player.Character
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                if hum and hum.WalkSpeed ~= S.speedValue then
+                    hum.WalkSpeed = S.speedValue
+                end
+            end
+        end
+    end)
 
     task.spawn(function()
         local hue = 0
@@ -228,9 +300,9 @@ local function setupUI()
         local tw = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         if S.isOpen then
             titleTxt.Visible = false; swQuickTween.Visible = false; btnQuickVoid.Visible = false; btnClose.Visible = true; content.Visible = true
-            TweenService:Create(island, tw, {Size = UDim2.new(0, 280, 0, 360), Position = UDim2.new(0.5, -140, 0, 10)}):Play()
+            TweenService:Create(island, tw, {Size = UDim2.new(0, 350, 0, 400), Position = UDim2.new(0.5, -175, 0, 10)}):Play()
             TweenService:Create(islandCorner, tw, {CornerRadius = UDim.new(0, 24)}):Play()
-            TweenService:Create(shadow, tw, {Size = UDim2.new(0, 280, 0, 360), Position = UDim2.new(0.5, -140, 0, 15)}):Play()
+            TweenService:Create(shadow, tw, {Size = UDim2.new(0, 350, 0, 400), Position = UDim2.new(0.5, -175, 0, 15)}):Play()
         else
             content.Visible = false; btnClose.Visible = false
             TweenService:Create(island, tw, {Size = UDim2.new(0, 220, 0, 40), Position = UDim2.new(0.5, -110, 0, 10)}):Play()
@@ -294,23 +366,72 @@ local function setupUI()
     swAutoTweenInside.MouseButton1Click:Connect(ToggleAutoTween)
 
     btnHop.MouseButton1Click:Connect(function()
-        btnHop.Text = "⏳ ĐANG TÌM..."
-        pcall(function()
-            local apiUrl = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
-            local data = HttpService:JSONDecode(game:HttpGet(apiUrl))
-            if data and data.data then
-                local valid = {}
-                for _, sv in ipairs(data.data) do
-                    if sv.playing < (sv.maxPlayers - 1) then table.insert(valid, sv.id) end
+        btnHop.Text = "⏳ ĐANG QUÉT BẠN BÈ..."
+        task.spawn(function()
+            pcall(function()
+                -- 1. Lấy danh sách bạn bè đang online
+                local friendsOnline = {}
+                local success, pages = pcall(function() return Players:GetFriendsAsync(player.UserId) end)
+                if success and pages then
+                    while true do
+                        local currentPage = pages:GetCurrentPage()
+                        for _, item in ipairs(currentPage) do
+                            if item.IsOnline then
+                                friendsOnline[item.Id] = true
+                            end
+                        end
+                        if pages.IsFinished then break end
+                        pages:AdvanceToNextPageAsync()
+                    end
                 end
-                if #valid > 0 then
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, valid[math.random(1, #valid)], player)
+
+                btnHop.Text = "⏳ ĐANG TÌM SERVER..."
+                
+                -- 2. Lấy danh sách server
+                local apiUrl = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+                local data = HttpService:JSONDecode(game:HttpGet(apiUrl))
+                local validServer = nil
+                local fallbackServer = nil
+
+                if data and data.data then
+                    for _, sv in ipairs(data.data) do
+                        if sv.playing < sv.maxPlayers then
+                            -- Lưu server dự phòng (nếu API ko lấy được ds bạn bè)
+                            if not fallbackServer then fallbackServer = sv.id end
+                            
+                            -- Check xem server này có chứa bạn bè không (Dùng API check player)
+                            local checkUrl = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/" .. sv.id
+                            local checkData = pcall(function() return HttpService:JSONDecode(game:HttpGet(checkUrl)) end)
+                            
+                            local hasFriend = false
+                            if checkData then
+                                for _, p in ipairs(checkData.data) do
+                                    if friendsOnline[p.id] then
+                                        hasFriend = true
+                                        break
+                                    end
+                                end
+                            end
+
+                            if not hasFriend then
+                                validServer = sv.id
+                                break
+                            end
+                        end
+                    end
+                end
+
+                if validServer then
+                    btnHop.Text = "⏳ ĐANG CHUYỂN..."
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, validServer, player)
+                elseif fallbackServer then
+                    btnHop.Text = "⏳ KHÔNG RÕ BẠN BÈ, CHUYỂN..."
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, fallbackServer, player)
                 else
-                    TeleportService:Teleport(game.PlaceId)
+                    btnHop.Text = "❌ HẾT SERVER!"
+                    task.delay(2, function() btnHop.Text = "🌐 HOP CLEAN SERVER" end)
                 end
-            else
-                TeleportService:Teleport(game.PlaceId)
-            end
+            end)
         end)
     end)
 
@@ -505,7 +626,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("[ollie] Load thành công v48!")
+print("[ollie] Load thành công bangbuoibe!")
 
 end)
 
