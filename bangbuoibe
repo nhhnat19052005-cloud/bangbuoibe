@@ -1,7 +1,7 @@
--- ollie_dynamic_island_pro_v27.lua
--- Thêm tính năng cuộn (ScrollingFrame) cho menu.
+--- ollie_dynamic_island_pro_v28.lua
+-- Phóng to UI, lọc Hop Server > 4 người.
 
-print("[ollie] Đang tải Dynamic Island v27...")
+print("[ollie] Đang tải Dynamic Island v28...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -53,18 +53,20 @@ local function setupUI()
     pcall(function() gui.Parent = player:WaitForChild("PlayerGui") end)
     if not gui.Parent then gui.Parent = game:GetService("CoreGui") end
 
+    -- Phóng to Shadow
     local shadow = Instance.new("Frame", gui)
-    shadow.Size = UDim2.new(0, 200, 0, 36)
-    shadow.Position = UDim2.new(0.5, -100, 0, 15)
+    shadow.Size = UDim2.new(0, 220, 0, 40)
+    shadow.Position = UDim2.new(0.5, -110, 0, 15)
     shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     shadow.BackgroundTransparency = 0.4
     shadow.BorderSizePixel = 0
     local shadowCorner = Instance.new("UICorner", shadow)
     shadowCorner.CornerRadius = UDim.new(1, 0)
 
+    -- Phóng to Island
     local island = Instance.new("Frame", gui)
-    island.Size = UDim2.new(0, 200, 0, 36)
-    island.Position = UDim2.new(0.5, -100, 0, 10)
+    island.Size = UDim2.new(0, 220, 0, 40)
+    island.Position = UDim2.new(0.5, -110, 0, 10)
     island.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
     island.BorderSizePixel = 0
     island.ClipsDescendants = true
@@ -87,7 +89,7 @@ local function setupUI()
     gradient.Rotation = 90
 
     local titleTxt = Instance.new("TextLabel", island)
-    titleTxt.Size = UDim2.new(0.6, 0, 0, 36)
+    titleTxt.Size = UDim2.new(0.6, 0, 0, 40)
     titleTxt.Position = UDim2.new(0, 15, 0, 0)
     titleTxt.BackgroundTransparency = 1
     titleTxt.Text = "FPS: ... | MS: ..."
@@ -97,8 +99,8 @@ local function setupUI()
     titleTxt.TextXAlignment = Enum.TextXAlignment.Left
 
     local btnQuickTele = Instance.new("TextButton", island)
-    btnQuickTele.Size = UDim2.new(0, 60, 0, 26)
-    btnQuickTele.Position = UDim2.new(0.5, 35, 0.5, -13)
+    btnQuickTele.Size = UDim2.new(0, 65, 0, 28)
+    btnQuickTele.Position = UDim2.new(0.5, 35, 0.5, -14)
     btnQuickTele.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
     btnQuickTele.Text = "BAY"
     btnQuickTele.TextColor3 = Color3.new(1, 1, 1)
@@ -117,7 +119,6 @@ local function setupUI()
     btnClose.TextSize = 18
     btnClose.Visible = false
 
-    -- Đổi Frame thành ScrollingFrame
     local content = Instance.new("ScrollingFrame", island)
     content.Size = UDim2.new(1, -20, 1, -50)
     content.Position = UDim2.new(0, 10, 0, 45)
@@ -143,14 +144,13 @@ local function setupUI()
     uiList.SortOrder = Enum.SortOrder.LayoutOrder
     uiList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-    -- Tự động cập nhật chiều dài CanvasSize khi thêm nút
     uiList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         content.CanvasSize = UDim2.new(0, 0, 0, uiList.AbsoluteContentSize.Y + 20)
     end)
 
     local function createBtn(text, color, layoutOrder)
         local btn = Instance.new("TextButton", content)
-        btn.Size = UDim2.new(1, 0, 0, 36)
+        btn.Size = UDim2.new(1, 0, 0, 38)
         btn.BackgroundColor3 = color
         btn.BorderSizePixel = 0
         btn.LayoutOrder = layoutOrder
@@ -172,7 +172,7 @@ local function setupUI()
 
     local function createToggle(text, layoutOrder)
         local frame = Instance.new("Frame", content)
-        frame.Size = UDim2.new(1, 0, 0, 34)
+        frame.Size = UDim2.new(1, 0, 0, 36)
         frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
         frame.BorderSizePixel = 0
         frame.LayoutOrder = layoutOrder
@@ -192,12 +192,12 @@ local function setupUI()
         lbl.Text = text
         lbl.TextColor3 = Color3.fromRGB(200, 200, 210)
         lbl.Font = Enum.Font.Gotham
-        lbl.TextSize = 12
+        lbl.TextSize = 13
         lbl.TextXAlignment = Enum.TextXAlignment.Left
         
         local switch = Instance.new("TextButton", frame)
-        switch.Size = UDim2.new(0, 44, 0, 22)
-        switch.Position = UDim2.new(1, -52, 0.5, -11)
+        switch.Size = UDim2.new(0, 46, 0, 24)
+        switch.Position = UDim2.new(1, -54, 0.5, -12)
         switch.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
         switch.Text = "ON"
         switch.TextColor3 = Color3.new(1, 1, 1)
@@ -211,7 +211,7 @@ local function setupUI()
 
     local btnSave = createBtn("📍 LƯU VỊ TRÍ", Color3.fromRGB(40, 100, 200), 2)
     local btnTele = createBtn("🚀 BAY VỀ (0.1s)", Color3.fromRGB(200, 40, 80), 3)
-    local btnHop = createBtn("🌐 HOP CLEAN SERVER", Color3.fromRGB(150, 50, 200), 4)
+    local btnHop = createBtn("🌐 HOP SERVER (>4 NGƯỜI)", Color3.fromRGB(150, 50, 200), 4)
     
     local swRagdoll = createToggle("Anti-Ragdoll (Lock)", 5)
     local swESP = createToggle("ESP Người Chơi", 6)
@@ -236,9 +236,9 @@ local function setupUI()
         local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         
         if S.isOpen then
-            -- Kích thước menu (có thể cố định chiều cao, phần dư sẽ cuộn)
-            local targetSize = UDim2.new(0, 250, 0, 320)
-            local targetPos = UDim2.new(0.5, -125, 0, 10) 
+            -- Phóng to chiều ngang lên 280, dài 340
+            local targetSize = UDim2.new(0, 280, 0, 340)
+            local targetPos = UDim2.new(0.5, -140, 0, 10) 
             
             titleTxt.Visible = false
             btnQuickTele.Visible = false
@@ -247,18 +247,18 @@ local function setupUI()
             
             TweenService:Create(island, tweenInfo, {Size = targetSize, Position = targetPos}):Play()
             TweenService:Create(islandCorner, tweenInfo, {CornerRadius = UDim.new(0, 24)}):Play()
-            TweenService:Create(shadow, tweenInfo, {Size = targetSize, Position = UDim2.new(0.5, -125, 0, 15)}):Play()
+            TweenService:Create(shadow, tweenInfo, {Size = targetSize, Position = UDim2.new(0.5, -140, 0, 15)}):Play()
             TweenService:Create(shadowCorner, tweenInfo, {CornerRadius = UDim.new(0, 24)}):Play()
         else
-            local targetSize = UDim2.new(0, 200, 0, 36)
-            local targetPos = UDim2.new(0.5, -100, 0, 10)
+            local targetSize = UDim2.new(0, 220, 0, 40)
+            local targetPos = UDim2.new(0.5, -110, 0, 10)
             
             content.Visible = false
             btnClose.Visible = false
             
             TweenService:Create(island, tweenInfo, {Size = targetSize, Position = targetPos}):Play()
             TweenService:Create(islandCorner, tweenInfo, {CornerRadius = UDim.new(1, 0)}):Play()
-            TweenService:Create(shadow, tweenInfo, {Size = targetSize, Position = UDim2.new(0.5, -100, 0, 15)}):Play()
+            TweenService:Create(shadow, tweenInfo, {Size = targetSize, Position = UDim2.new(0.5, -110, 0, 15)}):Play()
             TweenService:Create(shadowCorner, tweenInfo, {CornerRadius = UDim.new(1, 0)}):Play()
             
             task.delay(0.25, function()
@@ -311,7 +311,8 @@ local function setupUI()
                 if data and data.data then
                     local validServers = {}
                     for _, server in ipairs(data.data) do
-                        if server.playing >= 2 and server.playing < (server.maxPlayers - 1) then
+                        -- YÊU CẦU MỚI: Phải >= 4 người và phải còn slot trống
+                        if server.playing >= 4 and server.playing < (server.maxPlayers - 1) then
                             table.insert(validServers, server.id)
                         end
                     end
@@ -331,12 +332,12 @@ local function setupUI()
             
             if not found then
                 btnHop.Text = "❌ HẾT SERVER TRỐNG!"
-                task.delay(2, function() btnHop.Text = "🌐 HOP CLEAN SERVER" end)
+                task.delay(2, function() btnHop.Text = "🌐 HOP SERVER (>4 NGƯỜI)" end)
             end
         end)
         if not success then
             btnHop.Text = "❌ LỖI API!"
-            task.delay(2, function() btnHop.Text = "🌐 HOP CLEAN SERVER" end)
+            task.delay(2, function() btnHop.Text = "🌐 HOP SERVER (>4 NGƯỜI)" end)
         end
     end)
 
@@ -542,4 +543,4 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("[ollie] Load thành công v27 - Menu đã cuộn mượt!")
+print("[ollie] Load thành công v28 - Menu bự hơn, Hop > 4 người!")
