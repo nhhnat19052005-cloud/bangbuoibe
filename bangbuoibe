@@ -1,5 +1,5 @@
--- bangbuoibe.lua
--- Speed mặc định OFF. Hop >2 người. Fix tween.
+--- bangbuoibe.lua
+-- Tự động lấy Collect Zone ở Pen của mình. Chống nhầm nhà. Speed OFF.
 
 print("[ollie] Đang tải bangbuoibe...")
 
@@ -38,10 +38,66 @@ local S = {
     SavedPos = nil, isTweening = false, espEnabled = true, instantEnabled = true,
     ragdollEnabled = true, autoTweenEnabled = true, fakeEspEnabled = true,
     isOpen = false, RGBStrokes = {},
-    speedEnabled = false, speedValue = 70, speedMax = 500 -- Đã chuyển thành false
+    speedEnabled = false, speedValue = 70, speedMax = 500,
+    lastPos = nil, lastTimeMoved = tick(), autoSaveTriggered = false
 }
 
 local VOID_POS = Vector3.new(-1.20, -113.39, -185.98)
+
+-- ===== HÀM TÌM VỊ TRÍ NHÀ MÌNH (PEN + COLLECT ZONE) =====
+local function getMyHousePosition()
+    local myName = player.Name:lower()
+    local myPenPart = nil
+    local myPenModel = nil
+
+    -- 1. Tìm Pen của mình trước
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") or obj:IsA("Model") then
+            local n = obj.Name:lower()
+            if n:find("pen") then
+                local isMine = false
+                if n:find(myName) or n:find(tostring(player.UserId)) then isMine = true end
+                
+                local ownerId = obj:GetAttribute("OwnerId") or obj:GetAttribute("UserId") or obj:GetAttribute("Owner")
+                if ownerId == player.UserId or ownerId == player.Name then isMine = true end
+                
+                for _, d in ipairs(obj:GetDescendants()) do
+                    if d:IsA("ObjectValue") and d.Value == player then isMine = true end
+                    if d:IsA("StringValue") and d.Value == player.Name then isMine = true end
+                end
+
+                if isMine then
+                    myPenModel = obj.Parent
+                    myPenPart = obj:IsA("BasePart") and obj or obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                    break
+                end
+            end
+        end
+    end
+
+    -- 2. Nếu tìm thấy Pen, đi tìm Collect Zone gần Pen đó
+    if myPenPart then
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if (obj:IsA("BasePart") or obj:IsA("Model")) and (obj.Name:lower():find("collect") or obj.Name:lower():find("safe")) then
+                local part = obj:IsA("BasePart") and obj or obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                if part then
+                    -- Check xem Collect Zone có nằm gần Pen mình không (bán kính 50 studs)
+                    if (part.Position - myPenPart.Position).Magnitude < 50 then
+                        return part.Position
+                    end
+                    -- Hoặc check xem nó có nằm chung Model với Pen mình không
+                    if obj:IsDescendantOf(myPenModel) or myPenPart:IsDescendantOf(obj) then
+                        return part.Position
+                    end
+                end
+            end
+        end
+        -- Nếu không thấy Collect Zone, trả về vị trí Pen
+        return myPenPart.Position
+    end
+
+    return nil
+end
 
 local function isFakeEggChar(char)
     if not char then return false end
@@ -293,7 +349,6 @@ local function setupUI()
 
     local btnSpdDown = createSpeedBtn("-", 110, Color3.fromRGB(200, 50, 50))
     local btnSpdUp = createSpeedBtn("+", 180, Color3.fromRGB(50, 180, 50))
-    -- Nút Toggle mặc định hiển thị OFF
     local btnSpdToggle = createSpeedBtn(S.speedEnabled and "ON" or "OFF", 145, S.speedEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100))
 
     local function updateSpeedUI()
@@ -503,6 +558,44 @@ local function setupUI()
 end
 
 pcall(setupUI)
+
+-- ===== LOGIC TỰ ĐỘNG LƯU VỊ TRÍ =====
+task.spawn(function()
+    while task.wait(2) do
+        local returnPos = getMyHousePosition()
+        if returnPos then
+            S.SavedPos = returnPos
+        end
+    end
+end)
+
+-- ===== LOGIC AUTO SAVE NẾU ĐỨNG YÊN =====
+task.spawn(function()
+    while task.wait(1) do
+        local char = player.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            local currentPos = root.Position
+            if not S.SavedPos then
+                if S.lastPos then
+                    if (currentPos - S.lastPos).Magnitude > 2 then
+                        S.lastTimeMoved = tick()
+                        S.autoSaveTriggered = false
+                    else
+                        if not S.autoSaveTriggered and (tick() - S.lastTimeMoved > 5) then
+                            S.SavedPos = currentPos
+                            S.autoSaveTriggered = true
+                        end
+                    end
+                else
+                    S.lastPos = currentPos
+                    S.lastTimeMoved = tick()
+                end
+                S.lastPos = currentPos
+            end
+        end
+    end
+end)
 
 -- ===== LOGIC GẮN PROMPT =====
 local function HookPrompt(prompt)
