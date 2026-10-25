@@ -1,5 +1,5 @@
 -- bangbuoibe.lua
--- Hop server > 2 người. Tự động xóa UI cũ khi chạy lại. Speed 70. Fix Auto Tween.
+-- Speed mặc định OFF. Hop >2 người. Fix tween.
 
 print("[ollie] Đang tải bangbuoibe...")
 
@@ -15,7 +15,7 @@ local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 
--- DỌN DẸP UI CŨ (CHỐNG ĐÈ)
+-- DỌN DẸP UI CŨ
 if gethui then
     local hui = gethui()
     if hui then
@@ -28,7 +28,6 @@ if oldGui then oldGui:Destroy() end
 local coreOldGui = game:GetService("CoreGui"):FindFirstChild("ollieUI")
 if coreOldGui then coreOldGui:Destroy() end
 
--- Xóa các ID Highlight/ESP cũ
 for _, obj in ipairs(Workspace:GetDescendants()) do
     if obj.Name == "ollieESP_HL" or obj.Name == "ollieESP_BB" or obj.Name == "ollieFake_HL" then
         pcall(function() obj:Destroy() end)
@@ -39,7 +38,7 @@ local S = {
     SavedPos = nil, isTweening = false, espEnabled = true, instantEnabled = true,
     ragdollEnabled = true, autoTweenEnabled = true, fakeEspEnabled = true,
     isOpen = false, RGBStrokes = {},
-    speedEnabled = true, speedValue = 70, speedMax = 500
+    speedEnabled = false, speedValue = 70, speedMax = 500 -- Đã chuyển thành false
 }
 
 local VOID_POS = Vector3.new(-1.20, -113.39, -185.98)
@@ -294,6 +293,7 @@ local function setupUI()
 
     local btnSpdDown = createSpeedBtn("-", 110, Color3.fromRGB(200, 50, 50))
     local btnSpdUp = createSpeedBtn("+", 180, Color3.fromRGB(50, 180, 50))
+    -- Nút Toggle mặc định hiển thị OFF
     local btnSpdToggle = createSpeedBtn(S.speedEnabled and "ON" or "OFF", 145, S.speedEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100))
 
     local function updateSpeedUI()
