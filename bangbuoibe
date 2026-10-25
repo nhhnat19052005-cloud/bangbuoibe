@@ -1,7 +1,8 @@
--- bangbuoibe.lua
--- ESP viền đỏ toàn server. Bỏ Fake Egg. Lùi 15 studs.
+-- bangbuoibe.lua v9
+-- FULL: ESP đỏ, Tween, Void, Hop, Anti-Ragdoll, Speed, FLY (cframefly)
+-- UI: Dynamic Island khít, không dư khoảng trống bên phải
 
-print("[ollie] Đang tải bangbuoibe...")
+print("[ollie] Đang tải bangbuoibe v9...")
 
 local ok, err = pcall(function()
 
@@ -14,23 +15,21 @@ local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
+local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 -- DỌN DẸP UI CŨ
 if gethui then
     local hui = gethui()
     if hui then
-        local oldGui = hui:FindFirstChild("ollieUI")
-        if oldGui then oldGui:Destroy() end
+        local oldGui = hui:FindFirstChild("ollieUI"); if oldGui then oldGui:Destroy() end
     end
 end
-local oldGui = player:WaitForChild("PlayerGui"):FindFirstChild("ollieUI")
-if oldGui then oldGui:Destroy() end
-local coreOldGui = game:GetService("CoreGui"):FindFirstChild("ollieUI")
-if coreOldGui then coreOldGui:Destroy() end
+local oldGui = player:WaitForChild("PlayerGui"):FindFirstChild("ollieUI"); if oldGui then oldGui:Destroy() end
+local coreOldGui = game:GetService("CoreGui"):FindFirstChild("ollieUI"); if coreOldGui then coreOldGui:Destroy() end
 
 -- Xóa Highlight cũ
 for _, obj in ipairs(Workspace:GetDescendants()) do
-    if obj.Name == "ollieESP_HL" or obj.Name == "ollieESP_BB" or obj.Name == "ollieFake_HL" or obj.Name == "ollieFake_BB" then
+    if obj.Name == "ollieESP_HL" or obj.Name == "ollieESP_BB" then
         pcall(function() obj:Destroy() end)
     end
 end
@@ -39,7 +38,8 @@ local S = {
     SavedPos = nil, isTweening = false, instantEnabled = true,
     ragdollEnabled = true, autoTweenEnabled = true, espEnabled = true,
     isOpen = false, RGBStrokes = {},
-    speedEnabled = false, speedValue = 70, speedMax = 500
+    speedEnabled = false, speedValue = 70, speedMax = 500,
+    flyEnabled = false, flySpeed = 50, flySpeedMax = 100
 }
 
 local VOID_POS = Vector3.new(-1.20, -113.39, -185.98)
@@ -71,6 +71,96 @@ local function DoTween()
     end)
 end
 
+-- ===== FLY CORE (cframefly, mobile + PC) =====
+local flyConn = nil
+local flyKeys = {W=false,A=false,S=false,D=false,Q=false,E=false}
+local flyTouch = Vector2.new(0,0)
+
+local function stopFly()
+    S.flyEnabled = false
+    if flyConn then flyConn:Disconnect(); flyConn = nil end
+    print("[fly] stopped")
+end
+
+local function startFly()
+    stopFly()
+    local c = player.Character
+    local r = c and c:FindFirstChild("HumanoidRootPart")
+    if not r then
+        print("[fly] no root")
+        return false
+    end
+    S.flyEnabled = true
+    flyConn = RunService.RenderStepped:Connect(function()
+        if not S.flyEnabled then return end
+        local ch = player.Character
+        local rt = ch and ch:FindFirstChild("HumanoidRootPart")
+        if not rt then return end
+        local cam = workspace.CurrentCamera
+        local dir = Vector3.zero
+        local spd = S.flySpeed
+
+        if flyKeys.W then dir = dir + cam.CFrame.LookVector end
+        if flyKeys.S then dir = dir - cam.CFrame.LookVector end
+        if flyKeys.A then dir = dir - cam.CFrame.RightVector end
+        if flyKeys.D then dir = dir + cam.CFrame.RightVector end
+        if flyKeys.E then dir = dir + Vector3.new(0,1,0) end
+        if flyKeys.Q then dir = dir - Vector3.new(0,1,0) end
+
+        if IS_MOBILE and flyTouch.Magnitude > 0.05 then
+            dir = dir + cam.CFrame.RightVector * flyTouch.X
+            dir = dir - cam.CFrame.LookVector * flyTouch.Y
+        end
+
+        if dir.Magnitude > 0 then
+            rt.CFrame = rt.CFrame + dir.Unit * (spd / 60)
+        end
+        rt.AssemblyLinearVelocity = Vector3.zero
+        rt.AssemblyAngularVelocity = Vector3.zero
+    end)
+    print("[fly] started, speed=" .. tostring(S.flySpeed) .. ", mobile=" .. tostring(IS_MOBILE))
+    return true
+end
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    local k = input.KeyCode
+    if k == Enum.KeyCode.W then flyKeys.W = true
+    elseif k == Enum.KeyCode.A then flyKeys.A = true
+    elseif k == Enum.KeyCode.S then flyKeys.S = true
+    elseif k == Enum.KeyCode.D then flyKeys.D = true
+    elseif k == Enum.KeyCode.Q then flyKeys.Q = true
+    elseif k == Enum.KeyCode.E then flyKeys.E = true
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    local k = input.KeyCode
+    if k == Enum.KeyCode.W then flyKeys.W = false
+    elseif k == Enum.KeyCode.A then flyKeys.A = false
+    elseif k == Enum.KeyCode.S then flyKeys.S = false
+    elseif k == Enum.KeyCode.D then flyKeys.D = false
+    elseif k == Enum.KeyCode.Q then flyKeys.Q = false
+    elseif k == Enum.KeyCode.E then flyKeys.E = false
+    end
+end)
+
+if IS_MOBILE then
+    RunService.RenderStepped:Connect(function()
+        if not S.flyEnabled then return end
+        local c = player.Character
+        local hum = c and c:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        local md = hum.MoveDirection
+        if md.Magnitude > 0.05 then
+            local cam = workspace.CurrentCamera
+            flyTouch = Vector2.new(md:Dot(cam.CFrame.RightVector), -(md:Dot(cam.CFrame.LookVector)))
+        else
+            flyTouch = Vector2.new(0, 0)
+        end
+    end)
+end
+
+-- ===== UI CHÍNH (Dynamic Island Fix Khít) =====
 local function setupUI()
     local gui = Instance.new("ScreenGui")
     gui.Name = "ollieUI"
@@ -81,20 +171,23 @@ local function setupUI()
     if not gui.Parent then pcall(function() gui.Parent = player:WaitForChild("PlayerGui") end) end
     if not gui.Parent then gui.Parent = game:GetService("CoreGui") end
 
+    -- Thu hẹp width xuống 230 cho khít (vừa đủ 4 nút)
     local shadow = Instance.new("Frame", gui)
-    shadow.Size = UDim2.new(0, 220, 0, 40)
-    shadow.Position = UDim2.new(0.5, -110, 0, 15)
+    shadow.Size = UDim2.new(0, 230, 0, 38) 
+    shadow.Position = UDim2.new(0.5, -115, 0, 15)
     shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     shadow.BackgroundTransparency = 0.4
     shadow.BorderSizePixel = 0
+    shadow.ZIndex = 1
     Instance.new("UICorner", shadow).CornerRadius = UDim.new(1, 0)
 
     local island = Instance.new("Frame", gui)
-    island.Size = UDim2.new(0, 220, 0, 40)
-    island.Position = UDim2.new(0.5, -110, 0, 10)
+    island.Size = UDim2.new(0, 230, 0, 38)
+    island.Position = UDim2.new(0.5, -115, 0, 10)
     island.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
     island.BorderSizePixel = 0
     island.ClipsDescendants = true
+    island.ZIndex = 10
     local islandCorner = Instance.new("UICorner", island)
     islandCorner.CornerRadius = UDim.new(1, 0)
 
@@ -112,8 +205,9 @@ local function setupUI()
     })
     gradient.Rotation = 90
 
+    -- Text FPS/MS
     local titleTxt = Instance.new("TextLabel", island)
-    titleTxt.Size = UDim2.new(0, 85, 0, 40)
+    titleTxt.Size = UDim2.new(0, 85, 0, 38)
     titleTxt.Position = UDim2.new(0, 10, 0, 0)
     titleTxt.BackgroundTransparency = 1
     titleTxt.Text = "FPS: ... | MS: ..."
@@ -121,38 +215,59 @@ local function setupUI()
     titleTxt.Font = Enum.Font.GothamBold
     titleTxt.TextSize = 10
     titleTxt.TextXAlignment = Enum.TextXAlignment.Left
+    titleTxt.ZIndex = 11
 
+    -- Nút TWEEN
     local swQuickTween = Instance.new("TextButton", island)
-    swQuickTween.Size = UDim2.new(0, 45, 0, 24)
-    swQuickTween.Position = UDim2.new(0, 110, 0.5, -12)
+    swQuickTween.Size = UDim2.new(0, 42, 0, 22)
+    swQuickTween.Position = UDim2.new(0, 100, 0.5, -11)
     swQuickTween.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
     swQuickTween.Text = "TWEEN"
     swQuickTween.TextColor3 = Color3.new(1, 1, 1)
     swQuickTween.Font = Enum.Font.GothamBold
     swQuickTween.TextSize = 9
     swQuickTween.BorderSizePixel = 0
+    swQuickTween.ZIndex = 11
     Instance.new("UICorner", swQuickTween).CornerRadius = UDim.new(1, 0)
 
+    -- Nút VOID
     local btnQuickVoid = Instance.new("TextButton", island)
-    btnQuickVoid.Size = UDim2.new(0, 45, 0, 24)
-    btnQuickVoid.Position = UDim2.new(0, 160, 0.5, -12)
+    btnQuickVoid.Size = UDim2.new(0, 38, 0, 22)
+    btnQuickVoid.Position = UDim2.new(0, 145, 0.5, -11)
     btnQuickVoid.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
     btnQuickVoid.Text = "VOID"
     btnQuickVoid.TextColor3 = Color3.new(1, 1, 1)
     btnQuickVoid.Font = Enum.Font.GothamBold
     btnQuickVoid.TextSize = 9
     btnQuickVoid.BorderSizePixel = 0
+    btnQuickVoid.ZIndex = 11
     Instance.new("UICorner", btnQuickVoid).CornerRadius = UDim.new(1, 0)
 
+    -- Nút FLY
+    local btnQuickFly = Instance.new("TextButton", island)
+    btnQuickFly.Size = UDim2.new(0, 36, 0, 22)
+    btnQuickFly.Position = UDim2.new(0, 185, 0.5, -11)
+    btnQuickFly.BackgroundColor3 = Color3.fromRGB(100, 100, 100) 
+    btnQuickFly.Text = "FLY"
+    btnQuickFly.TextColor3 = Color3.new(1, 1, 1)
+    btnQuickFly.Font = Enum.Font.GothamBold
+    btnQuickFly.TextSize = 9
+    btnQuickFly.BorderSizePixel = 0
+    btnQuickFly.ZIndex = 11
+    Instance.new("UICorner", btnQuickFly).CornerRadius = UDim.new(1, 0)
+
+    -- Nút Close được đưa vào cùng vị trí nút FLY, kích thước bằng luôn để không chiếm thêm chỗ khi ẩn
     local btnClose = Instance.new("TextButton", island)
-    btnClose.Size = UDim2.new(0, 30, 0, 30)
-    btnClose.Position = UDim2.new(1, -35, 0, 5)
-    btnClose.BackgroundTransparency = 1
+    btnClose.Size = UDim2.new(0, 36, 0, 22)
+    btnClose.Position = UDim2.new(0, 185, 0.5, -11)
+    btnClose.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
     btnClose.Text = "✕"
-    btnClose.TextColor3 = Color3.fromRGB(255, 100, 100)
+    btnClose.TextColor3 = Color3.new(1, 1, 1)
     btnClose.Font = Enum.Font.GothamBold
-    btnClose.TextSize = 18
+    btnClose.TextSize = 14
     btnClose.Visible = false
+    btnClose.ZIndex = 12
+    Instance.new("UICorner", btnClose).CornerRadius = UDim.new(1, 0)
 
     local menuName = Instance.new("TextLabel", island)
     menuName.Size = UDim2.new(1, 0, 0, 24)
@@ -163,16 +278,19 @@ local function setupUI()
     menuName.Font = Enum.Font.GothamBold
     menuName.TextSize = 16
     menuName.Visible = false
+    menuName.ZIndex = 11
 
     local content = Instance.new("ScrollingFrame", island)
     content.Size = UDim2.new(1, -20, 1, -70)
     content.Position = UDim2.new(0, 10, 0, 65)
     content.BackgroundTransparency = 1
     content.BorderSizePixel = 0
-    content.ScrollBarThickness = 2
+    content.ScrollBarThickness = 3
     content.ScrollBarImageColor3 = Color3.fromRGB(200, 200, 200)
     content.CanvasSize = UDim2.new(0, 0, 0, 0)
     content.Visible = false
+    content.ZIndex = 11
+    content.ClipsDescendants = true
 
     local uiList = Instance.new("UIListLayout", content)
     uiList.Padding = UDim.new(0, 8)
@@ -192,6 +310,7 @@ local function setupUI()
         btn.TextColor3 = Color3.new(1, 1, 1)
         btn.Font = Enum.Font.GothamBold
         btn.TextSize = 13
+        btn.ZIndex = 12
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
         local s = Instance.new("UIStroke", btn)
         s.Color = Color3.fromRGB(255, 0, 128)
@@ -207,6 +326,7 @@ local function setupUI()
         frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
         frame.BorderSizePixel = 0
         frame.LayoutOrder = layoutOrder
+        frame.ZIndex = 12
         Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
         local s = Instance.new("UIStroke", frame)
         s.Color = Color3.fromRGB(255, 0, 128)
@@ -223,6 +343,7 @@ local function setupUI()
         lbl.Font = Enum.Font.Gotham
         lbl.TextSize = 13
         lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.ZIndex = 13
 
         local switch = Instance.new("TextButton", frame)
         switch.Size = UDim2.new(0, 46, 0, 24)
@@ -233,6 +354,7 @@ local function setupUI()
         switch.Font = Enum.Font.GothamBold
         switch.TextSize = 10
         switch.BorderSizePixel = 0
+        switch.ZIndex = 13
         Instance.new("UICorner", switch).CornerRadius = UDim.new(1, 0)
         return switch
     end
@@ -245,12 +367,14 @@ local function setupUI()
     local swESP = createToggle("ESP Người Chơi", 7)
     local swAutoTweenInside = createToggle("Auto Tween Buy/Steal", 8)
     local swInstant = createToggle("Instant Prompt", 9)
-    
+    local swFly = createToggle("✈️ FLY (WASD + Q/E)", 10)
+
     local speedFrame = Instance.new("Frame", content)
     speedFrame.Size = UDim2.new(1, 0, 0, 34)
     speedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     speedFrame.BorderSizePixel = 0
-    speedFrame.LayoutOrder = 10
+    speedFrame.LayoutOrder = 11
+    speedFrame.ZIndex = 12
     Instance.new("UICorner", speedFrame).CornerRadius = UDim.new(0, 10)
     local s = Instance.new("UIStroke", speedFrame)
     s.Color = Color3.fromRGB(255, 0, 128)
@@ -267,6 +391,7 @@ local function setupUI()
     speedLbl.Font = Enum.Font.GothamBold
     speedLbl.TextSize = 12
     speedLbl.TextXAlignment = Enum.TextXAlignment.Left
+    speedLbl.ZIndex = 13
 
     local function createSpeedBtn(text, posX, bgColor)
         local b = Instance.new("TextButton", speedFrame)
@@ -278,6 +403,7 @@ local function setupUI()
         b.Font = Enum.Font.GothamBold
         b.TextSize = 12
         b.BorderSizePixel = 0
+        b.ZIndex = 13
         Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
         return b
     end
@@ -304,8 +430,8 @@ local function setupUI()
         S.speedEnabled = not S.speedEnabled
         updateSpeedUI()
         if not S.speedEnabled then
-            local char = player.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local c = player.Character
+            local hum = c and c:FindFirstChildOfClass("Humanoid")
             if hum then hum.WalkSpeed = 16 end
         end
     end)
@@ -313,14 +439,100 @@ local function setupUI()
     task.spawn(function()
         while task.wait(0.1) do
             if S.speedEnabled then
-                local char = player.Character
-                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                local c = player.Character
+                local hum = c and c:FindFirstChildOfClass("Humanoid")
                 if hum and hum.WalkSpeed ~= S.speedValue then
                     hum.WalkSpeed = S.speedValue
                 end
             end
         end
     end)
+
+    local flyFrame = Instance.new("Frame", content)
+    flyFrame.Size = UDim2.new(1, 0, 0, 34)
+    flyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    flyFrame.BorderSizePixel = 0
+    flyFrame.LayoutOrder = 12
+    flyFrame.ZIndex = 12
+    Instance.new("UICorner", flyFrame).CornerRadius = UDim.new(0, 10)
+    local fs = Instance.new("UIStroke", flyFrame)
+    fs.Color = Color3.fromRGB(0, 200, 255)
+    fs.Thickness = 1.5
+    fs.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    table.insert(S.RGBStrokes, fs)
+
+    local flySpeedLbl = Instance.new("TextLabel", flyFrame)
+    flySpeedLbl.Size = UDim2.new(0.5, 0, 1, 0)
+    flySpeedLbl.Position = UDim2.new(0, 10, 0, 0)
+    flySpeedLbl.BackgroundTransparency = 1
+    flySpeedLbl.Text = "Fly Speed: " .. S.flySpeed
+    flySpeedLbl.TextColor3 = Color3.fromRGB(200, 220, 240)
+    flySpeedLbl.Font = Enum.Font.GothamBold
+    flySpeedLbl.TextSize = 12
+    flySpeedLbl.TextXAlignment = Enum.TextXAlignment.Left
+    flySpeedLbl.ZIndex = 13
+
+    local function createFlySpeedBtn(text, posX, bgColor)
+        local b = Instance.new("TextButton", flyFrame)
+        b.Size = UDim2.new(0, 30, 0, 22)
+        b.Position = UDim2.new(0, posX, 0.5, -11)
+        b.BackgroundColor3 = bgColor
+        b.Text = text
+        b.TextColor3 = Color3.new(1, 1, 1)
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 12
+        b.BorderSizePixel = 0
+        b.ZIndex = 13
+        Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+        return b
+    end
+
+    local btnFlyDown = createFlySpeedBtn("-", 110, Color3.fromRGB(200, 50, 50))
+    local btnFlyUp = createFlySpeedBtn("+", 180, Color3.fromRGB(50, 180, 50))
+    local btnFlyReset = createFlySpeedBtn("⟲", 145, Color3.fromRGB(80, 80, 120))
+
+    local function updateFlySpeedUI()
+        flySpeedLbl.Text = "Fly Speed: " .. S.flySpeed
+    end
+
+    btnFlyDown.MouseButton1Click:Connect(function()
+        S.flySpeed = math.max(1, S.flySpeed - 5)
+        updateFlySpeedUI()
+    end)
+    btnFlyUp.MouseButton1Click:Connect(function()
+        S.flySpeed = math.min(S.flySpeedMax, S.flySpeed + 5)
+        updateFlySpeedUI()
+    end)
+    btnFlyReset.MouseButton1Click:Connect(function()
+        S.flySpeed = 50
+        updateFlySpeedUI()
+    end)
+
+    local function toggleFlyCore()
+        if S.flyEnabled then
+            stopFly()
+            btnQuickFly.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+            btnQuickFly.Text = "FLY"
+            if swFly then swFly.Text = "OFF"; swFly.BackgroundColor3 = Color3.fromRGB(100, 100, 100) end
+        else
+            local started = startFly()
+            if started then
+                btnQuickFly.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
+                btnQuickFly.Text = "FLY"
+                if swFly then swFly.Text = "ON"; swFly.BackgroundColor3 = Color3.fromRGB(50, 180, 50) end
+            else
+                btnQuickFly.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+                btnQuickFly.Text = "ERR"
+                task.delay(2, function()
+                    btnQuickFly.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+                    btnQuickFly.Text = "FLY"
+                end)
+            end
+        end
+    end
+
+    btnQuickFly.MouseButton1Click:Connect(toggleFlyCore)
+    swFly.MouseButton1Click:Connect(toggleFlyCore)
 
     task.spawn(function()
         local hue = 0
@@ -340,28 +552,32 @@ local function setupUI()
         S.isOpen = not S.isOpen
         local tw = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         if S.isOpen then
-            titleTxt.Visible = false; swQuickTween.Visible = false; btnQuickVoid.Visible = false; btnClose.Visible = true; content.Visible = true; menuName.Visible = true
-            TweenService:Create(island, tw, {Size = UDim2.new(0, 350, 0, 420), Position = UDim2.new(0.5, -175, 0, 10)}):Play()
+            titleTxt.Visible = false; swQuickTween.Visible = false; btnQuickVoid.Visible = false; btnQuickFly.Visible = false; btnClose.Visible = true; content.Visible = true; menuName.Visible = true
+            TweenService:Create(island, tw, {Size = UDim2.new(0, 350, 0, 560), Position = UDim2.new(0.5, -175, 0, 10)}):Play()
             TweenService:Create(islandCorner, tw, {CornerRadius = UDim.new(0, 24)}):Play()
-            TweenService:Create(shadow, tw, {Size = UDim2.new(0, 350, 0, 420), Position = UDim2.new(0.5, -175, 0, 15)}):Play()
+            TweenService:Create(shadow, tw, {Size = UDim2.new(0, 350, 0, 560), Position = UDim2.new(0.5, -175, 0, 15)}):Play()
         else
             content.Visible = false; btnClose.Visible = false; menuName.Visible = false
-            TweenService:Create(island, tw, {Size = UDim2.new(0, 220, 0, 40), Position = UDim2.new(0.5, -110, 0, 10)}):Play()
+            TweenService:Create(island, tw, {Size = UDim2.new(0, 230, 0, 38), Position = UDim2.new(0.5, -115, 0, 10)}):Play()
             TweenService:Create(islandCorner, tw, {CornerRadius = UDim.new(1, 0)}):Play()
-            TweenService:Create(shadow, tw, {Size = UDim2.new(0, 220, 0, 40), Position = UDim2.new(0.5, -110, 0, 15)}):Play()
-            task.delay(0.25, function() titleTxt.Visible = true; swQuickTween.Visible = true; btnQuickVoid.Visible = true end)
+            TweenService:Create(shadow, tw, {Size = UDim2.new(0, 230, 0, 38), Position = UDim2.new(0.5, -115, 0, 15)}):Play()
+            task.delay(0.25, function() 
+                titleTxt.Visible = true; swQuickTween.Visible = true; btnQuickVoid.Visible = true; btnQuickFly.Visible = true 
+            end)
         end
     end
 
     island.InputBegan:Connect(function(input)
-        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not S.isOpen then toggleIsland() end
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not S.isOpen then 
+            toggleIsland() 
+        end
     end)
     btnClose.MouseButton1Click:Connect(toggleIsland)
 
     btnSave.MouseButton1Click:Connect(function()
-        local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if root then
-            S.SavedPos = root.Position
+        local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if r then
+            S.SavedPos = r.Position
             btnSave.Text = "✅ ĐÃ LƯU!"
             btnSave.BackgroundColor3 = Color3.fromRGB(40, 180, 80)
             task.delay(2, function() btnSave.Text = "📍 LƯU VỊ TRÍ"; btnSave.BackgroundColor3 = Color3.fromRGB(40, 100, 200) end)
@@ -369,9 +585,9 @@ local function setupUI()
     end)
 
     local function DoVoid()
-        local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if root then
-            root.CFrame = CFrame.new(VOID_POS)
+        local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if r then
+            r.CFrame = CFrame.new(VOID_POS)
         end
     end
 
@@ -394,11 +610,11 @@ local function setupUI()
         
         local function getServers(placeId)
             local servers = {}
-            local ok, result = pcall(function()
+            local okt, result = pcall(function()
                 local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
                 return HttpService:JSONDecode(game:HttpGet(url))
             end)
-            if ok and result and result.data then
+            if okt and result and result.data then
                 for _, sv in ipairs(result.data) do
                     if sv.playing >= 2 and sv.playing < sv.maxPlayers then
                         table.insert(servers, sv)
@@ -438,7 +654,6 @@ local function setupUI()
 
             for _, sv in ipairs(availableServers) do
                 local hasFriend = false
-                
                 pcall(function()
                     local checkUrl = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/" .. sv.id
                     local checkData = HttpService:JSONDecode(game:HttpGet(checkUrl))
@@ -469,9 +684,21 @@ local function setupUI()
         end)
     end)
 
-    swRagdoll.MouseButton1Click:Connect(function() S.ragdollEnabled = not S.ragdollEnabled; swRagdoll.Text = S.ragdollEnabled and "ON" or "OFF"; swRagdoll.BackgroundColor3 = S.ragdollEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
-    swESP.MouseButton1Click:Connect(function() S.espEnabled = not S.espEnabled; swESP.Text = S.espEnabled and "ON" or "OFF"; swESP.BackgroundColor3 = S.espEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
-    swInstant.MouseButton1Click:Connect(function() S.instantEnabled = not S.instantEnabled; swInstant.Text = S.instantEnabled and "ON" or "OFF"; swInstant.BackgroundColor3 = S.instantEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
+    swRagdoll.MouseButton1Click:Connect(function() 
+        S.ragdollEnabled = not S.ragdollEnabled
+        swRagdoll.Text = S.ragdollEnabled and "ON" or "OFF"
+        swRagdoll.BackgroundColor3 = S.ragdollEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
+    end)
+    swESP.MouseButton1Click:Connect(function() 
+        S.espEnabled = not S.espEnabled
+        swESP.Text = S.espEnabled and "ON" or "OFF"
+        swESP.BackgroundColor3 = S.espEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
+    end)
+    swInstant.MouseButton1Click:Connect(function() 
+        S.instantEnabled = not S.instantEnabled
+        swInstant.Text = S.instantEnabled and "ON" or "OFF"
+        swInstant.BackgroundColor3 = S.instantEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
+    end)
 
     local frames = 0
     RunService.RenderStepped:Connect(function() frames = frames + 1 end)
@@ -491,9 +718,10 @@ local function setupUI()
     end)
 end
 
-pcall(setupUI)
+local okUI, errUI = pcall(setupUI)
+if not okUI then warn("[setupUI] " .. tostring(errUI)) end
 
--- ===== LOGIC GẮN PROMPT =====
+-- ===== PROMPT HOOK =====
 local function HookPrompt(prompt)
     if not prompt:IsA("ProximityPrompt") then return end
     if prompt:GetAttribute("OllieHooked") then return end
@@ -502,32 +730,6 @@ local function HookPrompt(prompt)
     prompt.Triggered:Connect(function(plr)
         if plr == player then
             local act = string.lower(prompt.ActionText)
-            
-            if S.voidOnFakeBuy and (act:find("buy") or act:find("mua")) then
-                local promptPart = prompt.Parent
-                local targetPlayer = nil
-                
-                if promptPart and promptPart:IsA("BasePart") then
-                    for _, p in ipairs(Players:GetPlayers()) do
-                        if p ~= player and p.Character then
-                            local root = p.Character:FindFirstChild("HumanoidRootPart")
-                            if root and (root.Position - promptPart.Position).Magnitude < 20 then
-                                targetPlayer = p
-                                break
-                            end
-                        end
-                    end
-                end
-                
-                if targetPlayer then
-                    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                    local theirRoot = targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-                    if myRoot then myRoot.CFrame = CFrame.new(VOID_POS) end
-                    if theirRoot then theirRoot.CFrame = CFrame.new(VOID_POS) end
-                    return
-                end
-            end
-            
             if S.autoTweenEnabled and (act:find("buy") or act:find("mua") or act:find("steal") or act:find("cướp")) then
                 DoTween()
             end
@@ -546,7 +748,7 @@ Workspace.DescendantAdded:Connect(function(obj)
     if obj:IsA("ProximityPrompt") then HookPrompt(obj) end
 end)
 
--- ===== VÒNG LẶP ESP TÊN NGƯỜI CHƠI (ĐỎ) =====
+-- ===== ESP LOOP =====
 task.spawn(function()
     while task.wait(1) do
         pcall(function()
@@ -561,9 +763,7 @@ task.spawn(function()
             for _, plr in ipairs(Players:GetPlayers()) do
                 if plr ~= player and plr.Character then
                     local pChar = plr.Character
-                    
                     if S.espEnabled then
-                        -- Highlight đỏ
                         local hl = pChar:FindFirstChild("ollieESP_HL")
                         if not hl then
                             hl = Instance.new("Highlight")
@@ -573,11 +773,8 @@ task.spawn(function()
                             hl.FillTransparency = 0.5
                             hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                             hl.Parent = pChar
-                        else
-                            hl.FillColor = Color3.fromRGB(255, 0, 0)
                         end
                         
-                        -- Tên trên đầu (đỏ)
                         local head = pChar:FindFirstChild("Head")
                         if head then
                             local bb = head:FindFirstChild("ollieESP_BB")
@@ -618,40 +815,41 @@ task.spawn(function()
     end
 end)
 
--- Anti-Ragdoll
+-- ===== ANTI-RAGDOLL (bỏ qua khi fly) =====
 local lastValidCFrame = nil
 local isFrozen = false
 RunService.Heartbeat:Connect(function()
     if not S.ragdollEnabled then return end
-    local char = player.Character
-    if not char then return end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not hum or not root then return end
+    if S.flyEnabled then return end
+    local c = player.Character
+    if not c then return end
+    local hum = c:FindFirstChildOfClass("Humanoid")
+    local rt = c:FindFirstChild("HumanoidRootPart")
+    if not hum or not rt then return end
 
     if not isFrozen and not hum.PlatformStand and hum:GetState() ~= Enum.HumanoidStateType.Physics then
-        lastValidCFrame = root.CFrame
+        lastValidCFrame = rt.CFrame
     end
 
     if hum.PlatformStand or hum:GetState() == Enum.HumanoidStateType.Physics then
         if not isFrozen and lastValidCFrame then
             isFrozen = true
-            root.Anchored = true
+            rt.Anchored = true
             task.spawn(function()
                 local lockCFrame = CFrame.new(lastValidCFrame.Position, lastValidCFrame.Position + lastValidCFrame.LookVector)
-                root.CFrame = lockCFrame
+                rt.CFrame = lockCFrame
                 hum.PlatformStand = false
                 hum:ChangeState(Enum.HumanoidStateType.GettingUp)
                 local startTime = tick()
                 while tick() - startTime < 0.5 do
-                    if not root or not root.Parent then break end
-                    root.CFrame = lockCFrame
-                    root.Velocity = Vector3.zero
-                    root.RotVelocity = Vector3.zero
+                    if not rt or not rt.Parent then break end
+                    rt.CFrame = lockCFrame
+                    rt.Velocity = Vector3.zero
+                    rt.RotVelocity = Vector3.zero
                     task.wait()
                 end
-                if root and root.Parent then
-                    root.Anchored = false
+                if rt and rt.Parent then
+                    rt.Anchored = false
                     hum:ChangeState(Enum.HumanoidStateType.Running)
                 end
                 isFrozen = false
@@ -660,7 +858,11 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("[ollie] Load thành công bangbuoibe!")
+player.CharacterAdded:Connect(function()
+    stopFly()
+end)
+
+print("[ollie] Load thành công bangbuoibe v9! Mobile=" .. tostring(IS_MOBILE))
 
 end)
 
