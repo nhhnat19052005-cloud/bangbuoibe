@@ -1,5 +1,5 @@
 -- bangbuoibe.lua
--- Lùi 15 studs tính từ điểm Spawn gốc. Speed OFF.
+-- ESP viền đỏ toàn server. Bỏ Fake Egg. Lùi 15 studs.
 
 print("[ollie] Đang tải bangbuoibe...")
 
@@ -28,37 +28,29 @@ if oldGui then oldGui:Destroy() end
 local coreOldGui = game:GetService("CoreGui"):FindFirstChild("ollieUI")
 if coreOldGui then coreOldGui:Destroy() end
 
+-- Xóa Highlight cũ
 for _, obj in ipairs(Workspace:GetDescendants()) do
-    if obj.Name == "ollieESP_HL" or obj.Name == "ollieESP_BB" or obj.Name == "ollieFake_HL" then
+    if obj.Name == "ollieESP_HL" or obj.Name == "ollieESP_BB" or obj.Name == "ollieFake_HL" or obj.Name == "ollieFake_BB" then
         pcall(function() obj:Destroy() end)
     end
 end
 
 local S = { 
-    SavedPos = nil, isTweening = false, espEnabled = true, instantEnabled = true,
-    ragdollEnabled = true, autoTweenEnabled = true, fakeEspEnabled = true,
+    SavedPos = nil, isTweening = false, instantEnabled = true,
+    ragdollEnabled = true, autoTweenEnabled = true, espEnabled = true,
     isOpen = false, RGBStrokes = {},
     speedEnabled = false, speedValue = 70, speedMax = 500
 }
 
 local VOID_POS = Vector3.new(-1.20, -113.39, -185.98)
 
-local function isFakeEggChar(char)
-    if not char then return false end
-    if char:FindFirstChildWhichIsA("ProximityPrompt", true) then return true end
-    for _, v in ipairs(char:GetDescendants()) do
-        if v:IsA("BillboardGui") then
-            for _, txt in ipairs(v:GetDescendants()) do
-                if txt:IsA("TextLabel") then
-                    local text = txt.Text:lower()
-                    if text:find("%$") or text:find("egg") or text:find("trứng") or text:find("common") or text:find("rare") or text:find("epic") or text:find("legendary") or text:find("mythic") then
-                        return true
-                    end
-                end
-            end
-        end
-    end
-    return false
+-- ===== CHỐT VỊ TRÍ NGAY LÚC BẬT SCRIPT (LÙI 15 STUDS) =====
+local char = player.Character
+local root = char and char:FindFirstChild("HumanoidRootPart")
+if root then
+    local backwardOffset = root.CFrame.LookVector * -15
+    S.SavedPos = root.Position + backwardOffset
+    print("[ollie] Đã chốt vị trí hiện tại (lùi 15 studs): " .. tostring(S.SavedPos))
 end
 
 local function DoTween()
@@ -251,15 +243,14 @@ local function setupUI()
     local btnHop = createBtn("🌐 HOP SERVER (>2 NGƯỜI)", Color3.fromRGB(150, 50, 200), 5)
     local swRagdoll = createToggle("Anti-Ragdoll", 6)
     local swESP = createToggle("ESP Người Chơi", 7)
-    local swFakeESP = createToggle("ESP Fake Egg", 8)
-    local swAutoTweenInside = createToggle("Auto Tween Buy/Steal", 9)
-    local swInstant = createToggle("Instant Prompt", 10)
+    local swAutoTweenInside = createToggle("Auto Tween Buy/Steal", 8)
+    local swInstant = createToggle("Instant Prompt", 9)
     
     local speedFrame = Instance.new("Frame", content)
     speedFrame.Size = UDim2.new(1, 0, 0, 34)
     speedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     speedFrame.BorderSizePixel = 0
-    speedFrame.LayoutOrder = 11
+    speedFrame.LayoutOrder = 10
     Instance.new("UICorner", speedFrame).CornerRadius = UDim.new(0, 10)
     local s = Instance.new("UIStroke", speedFrame)
     s.Color = Color3.fromRGB(255, 0, 128)
@@ -480,7 +471,6 @@ local function setupUI()
 
     swRagdoll.MouseButton1Click:Connect(function() S.ragdollEnabled = not S.ragdollEnabled; swRagdoll.Text = S.ragdollEnabled and "ON" or "OFF"; swRagdoll.BackgroundColor3 = S.ragdollEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
     swESP.MouseButton1Click:Connect(function() S.espEnabled = not S.espEnabled; swESP.Text = S.espEnabled and "ON" or "OFF"; swESP.BackgroundColor3 = S.espEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
-    swFakeESP.MouseButton1Click:Connect(function() S.fakeEspEnabled = not S.fakeEspEnabled; swFakeESP.Text = S.fakeEspEnabled and "ON" or "OFF"; swFakeESP.BackgroundColor3 = S.fakeEspEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
     swInstant.MouseButton1Click:Connect(function() S.instantEnabled = not S.instantEnabled; swInstant.Text = S.instantEnabled and "ON" or "OFF"; swInstant.BackgroundColor3 = S.instantEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
 
     local frames = 0
@@ -503,25 +493,6 @@ end
 
 pcall(setupUI)
 
--- ===== TỰ ĐỘNG LƯU VỊ TRÍ LÚC BẬT SCRIPT (LÙI 15 STUDS TỪ ĐIỂM SPAWN BAN ĐẦU) =====
-local initialSpawnCFrame = nil
-
-task.spawn(function()
-    -- Đợi nhân vật load xong vị trí spawn đầu tiên
-    local char = player.Character or player.CharacterAdded:Wait()
-    task.wait(1.5)
-    
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if root then
-        initialSpawnCFrame = root.CFrame
-        
-        -- Lùi lại 15 studs theo hướng nhìn (LookVector)
-        local backwardOffset = initialSpawnCFrame.LookVector * -15
-        S.SavedPos = initialSpawnCFrame.Position + backwardOffset
-        print("[ollie] Đã tự động lưu vị trí: Spawn cũ lùi 15 studs -> " .. tostring(S.SavedPos))
-    end
-end)
-
 -- ===== LOGIC GẮN PROMPT =====
 local function HookPrompt(prompt)
     if not prompt:IsA("ProximityPrompt") then return end
@@ -531,6 +502,32 @@ local function HookPrompt(prompt)
     prompt.Triggered:Connect(function(plr)
         if plr == player then
             local act = string.lower(prompt.ActionText)
+            
+            if S.voidOnFakeBuy and (act:find("buy") or act:find("mua")) then
+                local promptPart = prompt.Parent
+                local targetPlayer = nil
+                
+                if promptPart and promptPart:IsA("BasePart") then
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        if p ~= player and p.Character then
+                            local root = p.Character:FindFirstChild("HumanoidRootPart")
+                            if root and (root.Position - promptPart.Position).Magnitude < 20 then
+                                targetPlayer = p
+                                break
+                            end
+                        end
+                    end
+                end
+                
+                if targetPlayer then
+                    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                    local theirRoot = targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if myRoot then myRoot.CFrame = CFrame.new(VOID_POS) end
+                    if theirRoot then theirRoot.CFrame = CFrame.new(VOID_POS) end
+                    return
+                end
+            end
+            
             if S.autoTweenEnabled and (act:find("buy") or act:find("mua") or act:find("steal") or act:find("cướp")) then
                 DoTween()
             end
@@ -549,7 +546,7 @@ Workspace.DescendantAdded:Connect(function(obj)
     if obj:IsA("ProximityPrompt") then HookPrompt(obj) end
 end)
 
--- Vòng lặp Instant Prompt & ESP
+-- ===== VÒNG LẶP ESP TÊN NGƯỜI CHƠI (ĐỎ) =====
 task.spawn(function()
     while task.wait(1) do
         pcall(function()
@@ -566,16 +563,21 @@ task.spawn(function()
                     local pChar = plr.Character
                     
                     if S.espEnabled then
+                        -- Highlight đỏ
                         local hl = pChar:FindFirstChild("ollieESP_HL")
                         if not hl then
                             hl = Instance.new("Highlight")
                             hl.Name = "ollieESP_HL"
-                            hl.FillColor = Color3.fromRGB(0, 255, 200)
+                            hl.FillColor = Color3.fromRGB(255, 0, 0)
                             hl.OutlineColor = Color3.new(1, 1, 1)
                             hl.FillTransparency = 0.5
                             hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                             hl.Parent = pChar
+                        else
+                            hl.FillColor = Color3.fromRGB(255, 0, 0)
                         end
+                        
+                        -- Tên trên đầu (đỏ)
                         local head = pChar:FindFirstChild("Head")
                         if head then
                             local bb = head:FindFirstChild("ollieESP_BB")
@@ -587,11 +589,12 @@ task.spawn(function()
                                 bb.AlwaysOnTop = true
                                 bb.Adornee = head
                                 bb.Parent = head
+                                
                                 local txt = Instance.new("TextLabel", bb)
                                 txt.Name = "ollieESP_TXT"
                                 txt.Size = UDim2.new(1, 0, 1, 0)
                                 txt.BackgroundTransparency = 1
-                                txt.TextColor3 = Color3.fromRGB(0, 255, 200)
+                                txt.TextColor3 = Color3.fromRGB(255, 0, 0)
                                 txt.TextStrokeTransparency = 0
                                 txt.Font = Enum.Font.GothamBold
                                 txt.TextSize = 13
@@ -607,24 +610,6 @@ task.spawn(function()
                         if head then
                             local bb = head:FindFirstChild("ollieESP_BB")
                             if bb then bb:Destroy() end
-                        end
-                    end
-                    
-                    if S.fakeEspEnabled then
-                        if isFakeEggChar(pChar) then
-                            local fhl = pChar:FindFirstChild("ollieFake_HL")
-                            if not fhl then
-                                fhl = Instance.new("Highlight")
-                                fhl.Name = "ollieFake_HL"
-                                fhl.FillColor = Color3.fromRGB(255, 50, 50)
-                                fhl.OutlineColor = Color3.new(1, 1, 1)
-                                fhl.FillTransparency = 0.5
-                                fhl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                                fhl.Parent = pChar
-                            end
-                        else
-                            local fhl = pChar:FindFirstChild("ollieFake_HL")
-                            if fhl then fhl:Destroy() end
                         end
                     end
                 end
