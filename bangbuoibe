@@ -1,8 +1,8 @@
--- bangbuoibe.lua v9
+-- bangbuoibe.lua v12
 -- FULL: ESP đỏ, Tween, Void, Hop, Anti-Ragdoll, Speed, FLY (cframefly)
--- UI: Dynamic Island khít, không dư khoảng trống bên phải
+-- UI: Fix cứng nút X, đẩy ZIndex lên cao nhất, không bị scroll đè
 
-print("[ollie] Đang tải bangbuoibe v9...")
+print("[ollie] Đang tải bangbuoibe v12...")
 
 local ok, err = pcall(function()
 
@@ -160,7 +160,7 @@ if IS_MOBILE then
     end)
 end
 
--- ===== UI CHÍNH (Dynamic Island Fix Khít) =====
+-- ===== UI CHÍNH (Fix Nút Close) =====
 local function setupUI()
     local gui = Instance.new("ScreenGui")
     gui.Name = "ollieUI"
@@ -171,7 +171,6 @@ local function setupUI()
     if not gui.Parent then pcall(function() gui.Parent = player:WaitForChild("PlayerGui") end) end
     if not gui.Parent then gui.Parent = game:GetService("CoreGui") end
 
-    -- Thu hẹp width xuống 230 cho khít (vừa đủ 4 nút)
     local shadow = Instance.new("Frame", gui)
     shadow.Size = UDim2.new(0, 230, 0, 38) 
     shadow.Position = UDim2.new(0.5, -115, 0, 15)
@@ -205,7 +204,7 @@ local function setupUI()
     })
     gradient.Rotation = 90
 
-    -- Text FPS/MS
+    -- Các nút bên ngoài Dynamic Island (sẽ ẩn khi mở menu)
     local titleTxt = Instance.new("TextLabel", island)
     titleTxt.Size = UDim2.new(0, 85, 0, 38)
     titleTxt.Position = UDim2.new(0, 10, 0, 0)
@@ -217,7 +216,6 @@ local function setupUI()
     titleTxt.TextXAlignment = Enum.TextXAlignment.Left
     titleTxt.ZIndex = 11
 
-    -- Nút TWEEN
     local swQuickTween = Instance.new("TextButton", island)
     swQuickTween.Size = UDim2.new(0, 42, 0, 22)
     swQuickTween.Position = UDim2.new(0, 100, 0.5, -11)
@@ -230,7 +228,6 @@ local function setupUI()
     swQuickTween.ZIndex = 11
     Instance.new("UICorner", swQuickTween).CornerRadius = UDim.new(1, 0)
 
-    -- Nút VOID
     local btnQuickVoid = Instance.new("TextButton", island)
     btnQuickVoid.Size = UDim2.new(0, 38, 0, 22)
     btnQuickVoid.Position = UDim2.new(0, 145, 0.5, -11)
@@ -243,7 +240,6 @@ local function setupUI()
     btnQuickVoid.ZIndex = 11
     Instance.new("UICorner", btnQuickVoid).CornerRadius = UDim.new(1, 0)
 
-    -- Nút FLY
     local btnQuickFly = Instance.new("TextButton", island)
     btnQuickFly.Size = UDim2.new(0, 36, 0, 22)
     btnQuickFly.Position = UDim2.new(0, 185, 0.5, -11)
@@ -256,18 +252,18 @@ local function setupUI()
     btnQuickFly.ZIndex = 11
     Instance.new("UICorner", btnQuickFly).CornerRadius = UDim.new(1, 0)
 
-    -- Nút Close được đưa vào cùng vị trí nút FLY, kích thước bằng luôn để không chiếm thêm chỗ khi ẩn
+    -- Nút X (Close) được mang ZIndex = 50 (Cao nhất, trên cả ScrollingFrame)
     local btnClose = Instance.new("TextButton", island)
-    btnClose.Size = UDim2.new(0, 36, 0, 22)
-    btnClose.Position = UDim2.new(0, 185, 0.5, -11)
-    btnClose.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+    btnClose.Size = UDim2.new(0, 30, 0, 30)
+    btnClose.Position = UDim2.new(1, -40, 0, 5) -- Ghim góc phải trên
+    btnClose.BackgroundTransparency = 1
     btnClose.Text = "✕"
-    btnClose.TextColor3 = Color3.new(1, 1, 1)
+    btnClose.TextColor3 = Color3.fromRGB(255, 100, 100)
     btnClose.Font = Enum.Font.GothamBold
-    btnClose.TextSize = 14
+    btnClose.TextSize = 22
     btnClose.Visible = false
-    btnClose.ZIndex = 12
-    Instance.new("UICorner", btnClose).CornerRadius = UDim.new(1, 0)
+    btnClose.ZIndex = 50 
+    btnClose.Active = true
 
     local menuName = Instance.new("TextLabel", island)
     menuName.Size = UDim2.new(1, 0, 0, 24)
@@ -280,9 +276,10 @@ local function setupUI()
     menuName.Visible = false
     menuName.ZIndex = 11
 
+    -- Đẩy content xuống y=70 để không đè lên nút X ở trên
     local content = Instance.new("ScrollingFrame", island)
-    content.Size = UDim2.new(1, -20, 1, -70)
-    content.Position = UDim2.new(0, 10, 0, 65)
+    content.Size = UDim2.new(1, -20, 1, -75)
+    content.Position = UDim2.new(0, 10, 0, 70)
     content.BackgroundTransparency = 1
     content.BorderSizePixel = 0
     content.ScrollBarThickness = 3
@@ -552,6 +549,7 @@ local function setupUI()
         S.isOpen = not S.isOpen
         local tw = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         if S.isOpen then
+            -- Ẩn mấy nút kia, hiện X
             titleTxt.Visible = false; swQuickTween.Visible = false; btnQuickVoid.Visible = false; btnQuickFly.Visible = false; btnClose.Visible = true; content.Visible = true; menuName.Visible = true
             TweenService:Create(island, tw, {Size = UDim2.new(0, 350, 0, 560), Position = UDim2.new(0.5, -175, 0, 10)}):Play()
             TweenService:Create(islandCorner, tw, {CornerRadius = UDim.new(0, 24)}):Play()
@@ -862,7 +860,7 @@ player.CharacterAdded:Connect(function()
     stopFly()
 end)
 
-print("[ollie] Load thành công bangbuoibe v9! Mobile=" .. tostring(IS_MOBILE))
+print("[ollie] Load thành công bangbuoibe v12! Mobile=" .. tostring(IS_MOBILE))
 
 end)
 
