@@ -1,5 +1,5 @@
--- bangbuoibe.lua v58
-print("[ollie] Bắt đầu load v58...")
+-- bangbuoibe.lua v64
+print("[ollie] Bắt đầu load v64...")
 
 local ok, err = pcall(function()
 print("[ollie] Bước 1: services")
@@ -40,7 +40,6 @@ local S = {
     noclipEnabled = false
 }
 
--- Lưu vị trí LÙI 15 studs theo hướng lưng (LookVector * -15)
 local BACK_OFFSET = 15
 local function computeSavedPos(root)
     if not root then return nil end
@@ -52,9 +51,7 @@ local char = player.Character
 local root = char and char:FindFirstChild("HumanoidRootPart")
 if root then
     S.SavedPos = computeSavedPos(root)
-    print("[ollie] SavedPos (lùi " .. BACK_OFFSET .. ") = " .. tostring(S.SavedPos))
-else
-    print("[ollie] Character chưa có root, sẽ chốt khi respawn")
+    print("[ollie] SavedPos = " .. tostring(S.SavedPos))
 end
 
 player.CharacterAdded:Connect(function(c)
@@ -104,7 +101,7 @@ local function FloatAndWalkBack(tag)
     task.wait(0.1)
     local airY = r.Position.Y
 
-    local LIFT = 10
+    local LIFT = 13
     local board = Instance.new("Part")
     board.Name = "OllieFloatBoard"
     board.Size = Vector3.new(8, 1, 8)
@@ -115,7 +112,7 @@ local function FloatAndWalkBack(tag)
     board.Color = Color3.fromRGB(255, 0, 255)
     board.CFrame = CFrame.new(r.Position.X, airY + LIFT - 3.5, r.Position.Z)
     board.Parent = Workspace
-    print("[PW] board Y=", board.Position.Y)
+    print("[PW] board Y=", board.Position.Y, " (+"..LIFT..")")
 
     local boardTopY = board.Position.Y + 0.5
     local desiredRootY = boardTopY + 3
@@ -145,7 +142,6 @@ local function FloatAndWalkBack(tag)
             if board and board.Parent then board:Destroy() end
             if h then h.WalkSpeed = oldSpeed end
             S.isMoving = false
-            print("[PW] END die/stop")
             return
         end
 
@@ -155,7 +151,6 @@ local function FloatAndWalkBack(tag)
             if board and board.Parent then board:Destroy() end
             h.WalkSpeed = oldSpeed
             S.isMoving = false
-            print("[PW] END override")
             return
         end
 
@@ -166,7 +161,6 @@ local function FloatAndWalkBack(tag)
             if board and board.Parent then board:Destroy() end
             h.WalkSpeed = oldSpeed
             S.isMoving = false
-            print("[PW] END arrived")
             return
         end
 
@@ -326,7 +320,7 @@ local function setupUI()
     gradient.Rotation = 90
 
     local titleTxt = Instance.new("TextLabel", island)
-    titleTxt.Size = UDim2.new(0, 65, 0, 38)
+    titleTxt.Size = UDim2.new(0, 85, 0, 38)
     titleTxt.Position = UDim2.new(0, 5, 0, 0)
     titleTxt.BackgroundTransparency = 1
     titleTxt.Text = "FPS: ... | MS: ..."
@@ -337,8 +331,8 @@ local function setupUI()
     titleTxt.ZIndex = 11
 
     local swQuickTween = Instance.new("TextButton", island)
-    swQuickTween.Size = UDim2.new(0, 42, 0, 22)
-    swQuickTween.Position = UDim2.new(1, -140, 0.5, -11) 
+    swQuickTween.Size = UDim2.new(0, 44, 0, 20)
+    swQuickTween.Position = UDim2.new(1, -96, 0.5, -10) 
     swQuickTween.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
     swQuickTween.Text = "TWEEN"
     swQuickTween.TextColor3 = Color3.new(1, 1, 1)
@@ -349,8 +343,8 @@ local function setupUI()
     Instance.new("UICorner", swQuickTween).CornerRadius = UDim.new(1, 0)
 
     local btnQuickTurbo = Instance.new("TextButton", island)
-    btnQuickTurbo.Size = UDim2.new(0, 42, 0, 22)
-    btnQuickTurbo.Position = UDim2.new(1, -94, 0.5, -11)
+    btnQuickTurbo.Size = UDim2.new(0, 44, 0, 20)
+    btnQuickTurbo.Position = UDim2.new(1, -48, 0.5, -10)
     btnQuickTurbo.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
     btnQuickTurbo.Text = "0.1s"
     btnQuickTurbo.TextColor3 = Color3.new(1, 1, 1)
@@ -359,18 +353,6 @@ local function setupUI()
     btnQuickTurbo.BorderSizePixel = 0
     btnQuickTurbo.ZIndex = 11
     Instance.new("UICorner", btnQuickTurbo).CornerRadius = UDim.new(1, 0)
-
-    local btnQuickFly = Instance.new("TextButton", island)
-    btnQuickFly.Size = UDim2.new(0, 42, 0, 22)
-    btnQuickFly.Position = UDim2.new(1, -48, 0.5, -11)
-    btnQuickFly.BackgroundColor3 = Color3.fromRGB(100, 100, 100) 
-    btnQuickFly.Text = "FLY"
-    btnQuickFly.TextColor3 = Color3.new(1, 1, 1)
-    btnQuickFly.Font = Enum.Font.GothamBold
-    btnQuickFly.TextSize = 9
-    btnQuickFly.BorderSizePixel = 0
-    btnQuickFly.ZIndex = 11
-    Instance.new("UICorner", btnQuickFly).CornerRadius = UDim.new(1, 0)
 
     local btnClose = Instance.new("TextButton", island)
     btnClose.Size = UDim2.new(0, 30, 0, 30)
@@ -388,7 +370,7 @@ local function setupUI()
     menuName.Size = UDim2.new(1, 0, 0, 24)
     menuName.Position = UDim2.new(0, 0, 0, 38)
     menuName.BackgroundTransparency = 1
-    menuName.Text = "bangbuoibe v58"
+    menuName.Text = "bangbuoibe v64"
     menuName.TextColor3 = Color3.fromRGB(200, 200, 220)
     menuName.Font = Enum.Font.GothamBold
     menuName.TextSize = 16
@@ -400,19 +382,22 @@ local function setupUI()
     content.Position = UDim2.new(0, 10, 0, 70)
     content.BackgroundTransparency = 1
     content.BorderSizePixel = 0
-    content.ScrollBarThickness = 3
-    content.ScrollBarImageColor3 = Color3.fromRGB(200, 200, 200)
+    content.ScrollBarThickness = 6
+    content.ScrollBarImageColor3 = Color3.fromRGB(255, 140, 0)
+    content.ScrollingDirection = Enum.ScrollingDirection.Y
+    content.ElasticBehavior = Enum.ElasticBehavior.Always
     content.CanvasSize = UDim2.new(0, 0, 0, 0)
     content.Visible = false
     content.ZIndex = 11
     content.ClipsDescendants = true
+    content.Active = true
 
     local uiList = Instance.new("UIListLayout", content)
     uiList.Padding = UDim.new(0, 8)
     uiList.SortOrder = Enum.SortOrder.LayoutOrder
     uiList.HorizontalAlignment = Enum.HorizontalAlignment.Center
     uiList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        content.CanvasSize = UDim2.new(0, 0, 0, uiList.AbsoluteContentSize.Y + 20)
+        content.CanvasSize = UDim2.new(0, 0, 0, uiList.AbsoluteContentSize.Y + 40)
     end)
 
     local function createBtn(text, color, layoutOrder)
@@ -482,13 +467,12 @@ local function setupUI()
     local swAutoTweenInside = createToggle("Auto Tween Buy/Steal", 6)
     local swInstant = createToggle("Instant Prompt", 7)
     local swFly = createToggle("✈️ FLY (WASD + Q/E)", 8)
-    local swNoclip = createToggle("👻 Noclip", 9)
 
     local speedFrame = Instance.new("Frame", content)
     speedFrame.Size = UDim2.new(1, 0, 0, 34)
     speedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     speedFrame.BorderSizePixel = 0
-    speedFrame.LayoutOrder = 10
+    speedFrame.LayoutOrder = 9
     speedFrame.ZIndex = 12
     Instance.new("UICorner", speedFrame).CornerRadius = UDim.new(0, 10)
     local s = Instance.new("UIStroke", speedFrame)
@@ -567,7 +551,7 @@ local function setupUI()
     flyFrame.Size = UDim2.new(1, 0, 0, 34)
     flyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     flyFrame.BorderSizePixel = 0
-    flyFrame.LayoutOrder = 11
+    flyFrame.LayoutOrder = 10
     flyFrame.ZIndex = 12
     Instance.new("UICorner", flyFrame).CornerRadius = UDim.new(0, 10)
     local fs = Instance.new("UIStroke", flyFrame)
@@ -626,34 +610,16 @@ local function setupUI()
     local function toggleFlyCore()
         if S.flyEnabled then
             stopFly()
-            btnQuickFly.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-            btnQuickFly.Text = "FLY"
             if swFly then swFly.Text = "OFF"; swFly.BackgroundColor3 = Color3.fromRGB(100, 100, 100) end
         else
             local started = startFly()
             if started then
-                btnQuickFly.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
-                btnQuickFly.Text = "FLY"
                 if swFly then swFly.Text = "ON"; swFly.BackgroundColor3 = Color3.fromRGB(50, 180, 50) end
-            else
-                btnQuickFly.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-                btnQuickFly.Text = "ERR"
-                task.delay(2, function()
-                    btnQuickFly.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-                    btnQuickFly.Text = "FLY"
-                end)
             end
         end
     end
 
-    btnQuickFly.MouseButton1Click:Connect(toggleFlyCore)
     swFly.MouseButton1Click:Connect(toggleFlyCore)
-
-    swNoclip.MouseButton1Click:Connect(function()
-        S.noclipEnabled = not S.noclipEnabled
-        swNoclip.Text = S.noclipEnabled and "ON" or "OFF"
-        swNoclip.BackgroundColor3 = S.noclipEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
-    end)
 
     task.spawn(function()
         local hue = 0
@@ -673,17 +639,17 @@ local function setupUI()
         S.isOpen = not S.isOpen
         local tw = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         if S.isOpen then
-            titleTxt.Visible = false; swQuickTween.Visible = false; btnQuickTurbo.Visible = false; btnQuickFly.Visible = false; btnClose.Visible = true; content.Visible = true; menuName.Visible = true
-            TweenService:Create(island, tw, {Size = UDim2.new(0, 350, 0, 560), Position = UDim2.new(0.5, -175, 0, 10)}):Play()
+            titleTxt.Visible = false; swQuickTween.Visible = false; btnQuickTurbo.Visible = false; btnClose.Visible = true; content.Visible = true; menuName.Visible = true
+            TweenService:Create(island, tw, {Size = UDim2.new(0, 350, 0, 620), Position = UDim2.new(0.5, -175, 0, 10)}):Play()
             TweenService:Create(islandCorner, tw, {CornerRadius = UDim.new(0, 24)}):Play()
-            TweenService:Create(shadow, tw, {Size = UDim2.new(0, 350, 0, 560), Position = UDim2.new(0.5, -175, 0, 15)}):Play()
+            TweenService:Create(shadow, tw, {Size = UDim2.new(0, 350, 0, 620), Position = UDim2.new(0.5, -175, 0, 15)}):Play()
         else
             content.Visible = false; btnClose.Visible = false; menuName.Visible = false
             TweenService:Create(island, tw, {Size = UDim2.new(0, 215, 0, 38), Position = UDim2.new(0.5, -107, 0, 10)}):Play()
             TweenService:Create(islandCorner, tw, {CornerRadius = UDim.new(1, 0)}):Play()
             TweenService:Create(shadow, tw, {Size = UDim2.new(0, 215, 0, 38), Position = UDim2.new(0.5, -107, 0, 15)}):Play()
             task.delay(0.25, function() 
-                titleTxt.Visible = true; swQuickTween.Visible = true; btnQuickTurbo.Visible = true; btnQuickFly.Visible = true 
+                titleTxt.Visible = true; swQuickTween.Visible = true; btnQuickTurbo.Visible = true 
             end)
         end
     end
@@ -963,5 +929,5 @@ end)
 if not ok then
     warn("[ollie] SCRIPT LỖI: " .. tostring(err))
 else
-    print("[ollie] Load thành công v58.")
+    print("[ollie] Load thành công v64.")
 end
