@@ -1,5 +1,5 @@
--- bangbuoibe.lua v56
-print("[ollie] Bắt đầu load v56...")
+-- bangbuoibe.lua v58
+print("[ollie] Bắt đầu load v58...")
 
 local ok, err = pcall(function()
 print("[ollie] Bước 1: services")
@@ -40,12 +40,19 @@ local S = {
     noclipEnabled = false
 }
 
-print("[ollie] Bước 4: chốt vị trí")
+-- Lưu vị trí LÙI 15 studs theo hướng lưng (LookVector * -15)
+local BACK_OFFSET = 15
+local function computeSavedPos(root)
+    if not root then return nil end
+    return root.Position - (root.CFrame.LookVector * BACK_OFFSET)
+end
+
+print("[ollie] Bước 4: chốt vị trí lùi " .. BACK_OFFSET .. " studs")
 local char = player.Character
 local root = char and char:FindFirstChild("HumanoidRootPart")
 if root then
-    S.SavedPos = root.Position
-    print("[ollie] SavedPos = " .. tostring(S.SavedPos))
+    S.SavedPos = computeSavedPos(root)
+    print("[ollie] SavedPos (lùi " .. BACK_OFFSET .. ") = " .. tostring(S.SavedPos))
 else
     print("[ollie] Character chưa có root, sẽ chốt khi respawn")
 end
@@ -54,7 +61,7 @@ player.CharacterAdded:Connect(function(c)
     task.wait(0.5)
     local r = c:FindFirstChild("HumanoidRootPart")
     if r then
-        S.SavedPos = r.Position
+        S.SavedPos = computeSavedPos(r)
         print("[ollie] SavedPos respawn = " .. tostring(S.SavedPos))
     end
 end)
@@ -97,7 +104,6 @@ local function FloatAndWalkBack(tag)
     task.wait(0.1)
     local airY = r.Position.Y
 
-    -- BOARD +10 studs
     local LIFT = 10
     local board = Instance.new("Part")
     board.Name = "OllieFloatBoard"
@@ -109,7 +115,7 @@ local function FloatAndWalkBack(tag)
     board.Color = Color3.fromRGB(255, 0, 255)
     board.CFrame = CFrame.new(r.Position.X, airY + LIFT - 3.5, r.Position.Z)
     board.Parent = Workspace
-    print("[PW] board Y=", board.Position.Y, " (+"..LIFT..")")
+    print("[PW] board Y=", board.Position.Y)
 
     local boardTopY = board.Position.Y + 0.5
     local desiredRootY = boardTopY + 3
@@ -120,7 +126,6 @@ local function FloatAndWalkBack(tag)
     h.WalkSpeed = 33
     h:ChangeState(Enum.HumanoidStateType.Running)
 
-    -- RGB cầu vồng
     local hue = 0
     local rgbConn
     rgbConn = RunService.Heartbeat:Connect(function(dt)
@@ -176,63 +181,23 @@ local function FloatAndWalkBack(tag)
     end)
 end
 
-print("[ollie] Bước 7: UndergroundWalk")
-local function UndergroundWalk()
-    if not S.SavedPos or S.isMoving then return end
+print("[ollie] Bước 7: TurboTween 0.1s")
+local function TurboTween()
+    if not S.SavedPos then warn("[TURBO] no SavedPos"); return end
+    if S.isMoving then print("[TURBO] đang moving, skip"); return end
     local c = player.Character
     local r = c and c:FindFirstChild("HumanoidRootPart")
-    local h = c and c:FindFirstChildOfClass("Humanoid")
-    if not r or not h then return end
+    if not r then return end
     S.isMoving = true
-    local targetPos = S.SavedPos
-    S.noclipEnabled = true
-    task.wait(0.1)
-    local oldSpeed = h.WalkSpeed
-    h.WalkSpeed = 30 
-    local undergroundY = r.Position.Y - 5
-    r.CFrame = CFrame.new(r.Position.X, undergroundY, r.Position.Z)
-    local bodyPos = Instance.new("BodyPosition")
-    bodyPos.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    bodyPos.P = 10000
-    bodyPos.D = 500
-    bodyPos.Position = Vector3.new(r.Position.X, undergroundY, r.Position.Z)
-    bodyPos.Parent = r
-    task.wait(0.1)
-    local conn
-    conn = RunService.Heartbeat:Connect(function()
-        if not r or not r.Parent or not h or h.Health <= 0 or not S.isMoving then
-            if conn then conn:Disconnect() end
-            if bodyPos and bodyPos.Parent then bodyPos:Destroy() end
-            if h then h.WalkSpeed = oldSpeed end
-            S.isMoving = false
-            S.noclipEnabled = false
-            return
-        end
-        if h.MoveDirection.Magnitude > 0.05 then
-            if conn then conn:Disconnect() end
-            if bodyPos and bodyPos.Parent then bodyPos:Destroy() end
-            h.WalkSpeed = oldSpeed
-            S.isMoving = false
-            S.noclipEnabled = false
-            return
-        end
-        local dist = (targetPos - r.Position).Magnitude
-        if dist < 5 then
-            if conn then conn:Disconnect() end
-            if bodyPos and bodyPos.Parent then bodyPos:Destroy() end
-            r.CFrame = CFrame.new(targetPos)
-            h.WalkSpeed = oldSpeed
-            S.noclipEnabled = false
-            for _, v in pairs(c:GetDescendants()) do
-                if v:IsA("BasePart") then v.CanCollide = true end
-            end
-            h:MoveTo(r.Position)
-            S.isMoving = false
-            return
-        end
-        bodyPos.Position = Vector3.new(r.Position.X, undergroundY, r.Position.Z)
-        h:MoveTo(Vector3.new(targetPos.X, undergroundY, targetPos.Z))
+    local targetCF = CFrame.new(S.SavedPos)
+    local tw = TweenInfo.new(0.1, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+    local t = TweenService:Create(r, tw, {CFrame = targetCF})
+    t:Play()
+    t.Completed:Connect(function()
+        S.isMoving = false
+        print("[TURBO] Done")
     end)
+    task.delay(0.3, function() S.isMoving = false end)
 end
 
 print("[ollie] Bước 8: fly")
@@ -361,7 +326,7 @@ local function setupUI()
     gradient.Rotation = 90
 
     local titleTxt = Instance.new("TextLabel", island)
-    titleTxt.Size = UDim2.new(0, 75, 0, 38)
+    titleTxt.Size = UDim2.new(0, 65, 0, 38)
     titleTxt.Position = UDim2.new(0, 5, 0, 0)
     titleTxt.BackgroundTransparency = 1
     titleTxt.Text = "FPS: ... | MS: ..."
@@ -372,8 +337,8 @@ local function setupUI()
     titleTxt.ZIndex = 11
 
     local swQuickTween = Instance.new("TextButton", island)
-    swQuickTween.Size = UDim2.new(0, 45, 0, 22)
-    swQuickTween.Position = UDim2.new(1, -95, 0.5, -11) 
+    swQuickTween.Size = UDim2.new(0, 42, 0, 22)
+    swQuickTween.Position = UDim2.new(1, -140, 0.5, -11) 
     swQuickTween.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
     swQuickTween.Text = "TWEEN"
     swQuickTween.TextColor3 = Color3.new(1, 1, 1)
@@ -383,9 +348,21 @@ local function setupUI()
     swQuickTween.ZIndex = 11
     Instance.new("UICorner", swQuickTween).CornerRadius = UDim.new(1, 0)
 
+    local btnQuickTurbo = Instance.new("TextButton", island)
+    btnQuickTurbo.Size = UDim2.new(0, 42, 0, 22)
+    btnQuickTurbo.Position = UDim2.new(1, -94, 0.5, -11)
+    btnQuickTurbo.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+    btnQuickTurbo.Text = "0.1s"
+    btnQuickTurbo.TextColor3 = Color3.new(1, 1, 1)
+    btnQuickTurbo.Font = Enum.Font.GothamBold
+    btnQuickTurbo.TextSize = 9
+    btnQuickTurbo.BorderSizePixel = 0
+    btnQuickTurbo.ZIndex = 11
+    Instance.new("UICorner", btnQuickTurbo).CornerRadius = UDim.new(1, 0)
+
     local btnQuickFly = Instance.new("TextButton", island)
-    btnQuickFly.Size = UDim2.new(0, 45, 0, 22)
-    btnQuickFly.Position = UDim2.new(1, -45, 0.5, -11)
+    btnQuickFly.Size = UDim2.new(0, 42, 0, 22)
+    btnQuickFly.Position = UDim2.new(1, -48, 0.5, -11)
     btnQuickFly.BackgroundColor3 = Color3.fromRGB(100, 100, 100) 
     btnQuickFly.Text = "FLY"
     btnQuickFly.TextColor3 = Color3.new(1, 1, 1)
@@ -411,7 +388,7 @@ local function setupUI()
     menuName.Size = UDim2.new(1, 0, 0, 24)
     menuName.Position = UDim2.new(0, 0, 0, 38)
     menuName.BackgroundTransparency = 1
-    menuName.Text = "bangbuoibe v56"
+    menuName.Text = "bangbuoibe v58"
     menuName.TextColor3 = Color3.fromRGB(200, 200, 220)
     menuName.Font = Enum.Font.GothamBold
     menuName.TextSize = 16
@@ -497,8 +474,8 @@ local function setupUI()
         return switch
     end
 
-    local btnSave = createBtn("📍 LƯU VỊ TRÍ", Color3.fromRGB(40, 100, 200), 1)
-    local btnTele = createBtn("🚀 BAY VỀ (Platform)", Color3.fromRGB(200, 40, 80), 2)
+    local btnSave = createBtn("📍 LƯU VỊ TRÍ (LÙI 15)", Color3.fromRGB(40, 100, 200), 1)
+    local btnTurboMenu = createBtn("⚡ TWEEN SIÊU TỐC 0.1s", Color3.fromRGB(255, 140, 0), 2)
     local btnHop = createBtn("🌐 HOP SERVER (>2 NGƯỜI)", Color3.fromRGB(150, 50, 200), 3)
     local swRagdoll = createToggle("Anti-Ragdoll", 4)
     local swESP = createToggle("ESP Người Chơi", 5)
@@ -696,7 +673,7 @@ local function setupUI()
         S.isOpen = not S.isOpen
         local tw = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         if S.isOpen then
-            titleTxt.Visible = false; swQuickTween.Visible = false; btnQuickFly.Visible = false; btnClose.Visible = true; content.Visible = true; menuName.Visible = true
+            titleTxt.Visible = false; swQuickTween.Visible = false; btnQuickTurbo.Visible = false; btnQuickFly.Visible = false; btnClose.Visible = true; content.Visible = true; menuName.Visible = true
             TweenService:Create(island, tw, {Size = UDim2.new(0, 350, 0, 560), Position = UDim2.new(0.5, -175, 0, 10)}):Play()
             TweenService:Create(islandCorner, tw, {CornerRadius = UDim.new(0, 24)}):Play()
             TweenService:Create(shadow, tw, {Size = UDim2.new(0, 350, 0, 560), Position = UDim2.new(0.5, -175, 0, 15)}):Play()
@@ -706,7 +683,7 @@ local function setupUI()
             TweenService:Create(islandCorner, tw, {CornerRadius = UDim.new(1, 0)}):Play()
             TweenService:Create(shadow, tw, {Size = UDim2.new(0, 215, 0, 38), Position = UDim2.new(0.5, -107, 0, 15)}):Play()
             task.delay(0.25, function() 
-                titleTxt.Visible = true; swQuickTween.Visible = true; btnQuickFly.Visible = true 
+                titleTxt.Visible = true; swQuickTween.Visible = true; btnQuickTurbo.Visible = true; btnQuickFly.Visible = true 
             end)
         end
     end
@@ -721,14 +698,15 @@ local function setupUI()
     btnSave.MouseButton1Click:Connect(function()
         local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if r then
-            S.SavedPos = r.Position
-            btnSave.Text = "✅ ĐÃ LƯU!"
+            S.SavedPos = computeSavedPos(r)
+            btnSave.Text = "✅ ĐÃ LƯU (LÙI 15)!"
             btnSave.BackgroundColor3 = Color3.fromRGB(40, 180, 80)
-            task.delay(2, function() btnSave.Text = "📍 LƯU VỊ TRÍ"; btnSave.BackgroundColor3 = Color3.fromRGB(40, 100, 200) end)
+            task.delay(2, function() btnSave.Text = "📍 LƯU VỊ TRÍ (LÙI 15)"; btnSave.BackgroundColor3 = Color3.fromRGB(40, 100, 200) end)
         end
     end)
 
-    btnTele.MouseButton1Click:Connect(UndergroundWalk)
+    btnTurboMenu.MouseButton1Click:Connect(TurboTween)
+    btnQuickTurbo.MouseButton1Click:Connect(TurboTween)
 
     local function ToggleAutoTween()
         S.autoTweenEnabled = not S.autoTweenEnabled
@@ -985,5 +963,5 @@ end)
 if not ok then
     warn("[ollie] SCRIPT LỖI: " .. tostring(err))
 else
-    print("[ollie] Load thành công v56.")
+    print("[ollie] Load thành công v58.")
 end
