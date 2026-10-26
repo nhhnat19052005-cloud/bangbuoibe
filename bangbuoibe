@@ -1,5 +1,5 @@
--- bangbuoibe.lua v64
-print("[ollie] Bắt đầu load v64...")
+-- bangbuoibe.lua v65
+print("[ollie] Bắt đầu load v65...")
 
 local ok, err = pcall(function()
 print("[ollie] Bước 1: services")
@@ -370,7 +370,7 @@ local function setupUI()
     menuName.Size = UDim2.new(1, 0, 0, 24)
     menuName.Position = UDim2.new(0, 0, 0, 38)
     menuName.BackgroundTransparency = 1
-    menuName.Text = "bangbuoibe v64"
+    menuName.Text = "bangbuoibe v65"
     menuName.TextColor3 = Color3.fromRGB(200, 200, 220)
     menuName.Font = Enum.Font.GothamBold
     menuName.TextSize = 16
@@ -796,8 +796,14 @@ local function HookPrompt(prompt)
         local act = string.lower(prompt.ActionText)
         print("[HOOK] Triggered:", prompt.ActionText)
         if not S.autoTweenEnabled then return end
-        if act:find("buy") or act:find("mua") or act:find("steal") or act:find("cướp") then
+
+        local isBuy = act:find("buy") or act:find("mua")
+        local isSteal = act:find("steal") or act:find("cướp")
+
+        if isBuy then
             task.spawn(function() FloatAndWalkBack(act) end)
+        elseif isSteal then
+            task.spawn(TurboTween)
         end
     end)
 end
@@ -929,5 +935,5 @@ end)
 if not ok then
     warn("[ollie] SCRIPT LỖI: " .. tostring(err))
 else
-    print("[ollie] Load thành công v64.")
+    print("[ollie] Load thành công v65.")
 end
