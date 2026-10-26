@@ -1,5 +1,5 @@
--- bangbuoibe.lua v65
-print("[ollie] Bắt đầu load v65...")
+-- bangbuoibe.lua v67
+print("[ollie] Bắt đầu load v67...")
 
 local ok, err = pcall(function()
 print("[ollie] Bước 1: services")
@@ -37,7 +37,7 @@ local S = {
     isOpen = false, RGBStrokes = {},
     speedEnabled = false, speedValue = 70, speedMax = 500,
     flyEnabled = false, flySpeed = 50, flySpeedMax = 100,
-    noclipEnabled = false
+    fixLagEnabled = true -- Auto bật Fix Lag
 }
 
 local BACK_OFFSET = 15
@@ -63,19 +63,38 @@ player.CharacterAdded:Connect(function(c)
     end
 end)
 
-print("[ollie] Bước 5: noclip loop")
-RunService.Stepped:Connect(function()
-    if S.noclipEnabled then
-        local c = player.Character
-        if c then
-            for _, v in pairs(c:GetDescendants()) do
-                if v:IsA("BasePart") and v.CanCollide then
-                    v.CanCollide = false
-                end
-            end
+-- ===== FIX LAG CORE =====
+print("[ollie] Bước 5: Fix Lag Core")
+local function isLagObject(obj)
+    if obj:IsA("ParticleEmitter") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") or obj:IsA("Beam") or obj:IsA("Trail") then return true end
+    if obj:IsA("PointLight") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then return true end
+    if obj:IsA("Decal") or obj:IsA("Texture") then return true end
+    if obj:IsA("Sound") then return true end
+    if obj:IsA("BasePart") and not obj.Anchored and not obj.CanCollide then
+        local n = string.lower(obj.Name)
+        if n:find("effect") or n:find("particle") or n:find("coin") or n:find("cash") or n:find("money") or n:find("sparkle") or n:find("rain") or n:find("snow") then
+            return true
         end
     end
+    return false
+end
+
+local function applyFixLag()
+    if not S.fixLagEnabled then return end
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if isLagObject(obj) then
+            pcall(function() obj:Destroy() end)
+        end
+    end
+end
+
+Workspace.DescendantAdded:Connect(function(obj)
+    if S.fixLagEnabled and isLagObject(obj) then
+        pcall(function() obj:Destroy() end)
+    end
 end)
+
+task.spawn(applyFixLag)
 
 print("[ollie] Bước 6: FloatAndWalkBack")
 local function FloatAndWalkBack(tag)
@@ -370,7 +389,7 @@ local function setupUI()
     menuName.Size = UDim2.new(1, 0, 0, 24)
     menuName.Position = UDim2.new(0, 0, 0, 38)
     menuName.BackgroundTransparency = 1
-    menuName.Text = "bangbuoibe v65"
+    menuName.Text = "bangbuoibe v67"
     menuName.TextColor3 = Color3.fromRGB(200, 200, 220)
     menuName.Font = Enum.Font.GothamBold
     menuName.TextSize = 16
@@ -420,7 +439,7 @@ local function setupUI()
         return btn
     end
 
-    local function createToggle(text, layoutOrder)
+    local function createToggle(text, layoutOrder, isOn)
         local frame = Instance.new("Frame", content)
         frame.Size = UDim2.new(1, 0, 0, 36)
         frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
@@ -448,8 +467,8 @@ local function setupUI()
         local switch = Instance.new("TextButton", frame)
         switch.Size = UDim2.new(0, 46, 0, 24)
         switch.Position = UDim2.new(1, -54, 0.5, -12)
-        switch.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
-        switch.Text = "ON"
+        switch.BackgroundColor3 = isOn and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
+        switch.Text = isOn and "ON" or "OFF"
         switch.TextColor3 = Color3.new(1, 1, 1)
         switch.Font = Enum.Font.GothamBold
         switch.TextSize = 10
@@ -462,17 +481,18 @@ local function setupUI()
     local btnSave = createBtn("📍 LƯU VỊ TRÍ (LÙI 15)", Color3.fromRGB(40, 100, 200), 1)
     local btnTurboMenu = createBtn("⚡ TWEEN SIÊU TỐC 0.1s", Color3.fromRGB(255, 140, 0), 2)
     local btnHop = createBtn("🌐 HOP SERVER (>2 NGƯỜI)", Color3.fromRGB(150, 50, 200), 3)
-    local swRagdoll = createToggle("Anti-Ragdoll", 4)
-    local swESP = createToggle("ESP Người Chơi", 5)
-    local swAutoTweenInside = createToggle("Auto Tween Buy/Steal", 6)
-    local swInstant = createToggle("Instant Prompt", 7)
-    local swFly = createToggle("✈️ FLY (WASD + Q/E)", 8)
+    local swFixLag = createToggle("🚀 Fix Lag (Auto ON)", 4, S.fixLagEnabled)
+    local swRagdoll = createToggle("Anti-Ragdoll", 5, S.ragdollEnabled)
+    local swESP = createToggle("ESP Người Chơi", 6, S.espEnabled)
+    local swAutoTweenInside = createToggle("Auto Tween Buy/Steal", 7, S.autoTweenEnabled)
+    local swInstant = createToggle("Instant Prompt", 8, S.instantEnabled)
+    local swFly = createToggle("✈️ FLY (WASD + Q/E)", 9, false)
 
     local speedFrame = Instance.new("Frame", content)
     speedFrame.Size = UDim2.new(1, 0, 0, 34)
     speedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     speedFrame.BorderSizePixel = 0
-    speedFrame.LayoutOrder = 9
+    speedFrame.LayoutOrder = 10
     speedFrame.ZIndex = 12
     Instance.new("UICorner", speedFrame).CornerRadius = UDim.new(0, 10)
     local s = Instance.new("UIStroke", speedFrame)
@@ -551,7 +571,7 @@ local function setupUI()
     flyFrame.Size = UDim2.new(1, 0, 0, 34)
     flyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     flyFrame.BorderSizePixel = 0
-    flyFrame.LayoutOrder = 10
+    flyFrame.LayoutOrder = 11
     flyFrame.ZIndex = 12
     Instance.new("UICorner", flyFrame).CornerRadius = UDim.new(0, 10)
     local fs = Instance.new("UIStroke", flyFrame)
@@ -747,6 +767,13 @@ local function setupUI()
         end)
     end)
 
+    swFixLag.MouseButton1Click:Connect(function()
+        S.fixLagEnabled = not S.fixLagEnabled
+        swFixLag.Text = S.fixLagEnabled and "ON" or "OFF"
+        swFixLag.BackgroundColor3 = S.fixLagEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
+        if S.fixLagEnabled then applyFixLag() end
+    end)
+
     swRagdoll.MouseButton1Click:Connect(function() 
         S.ragdollEnabled = not S.ragdollEnabled
         swRagdoll.Text = S.ragdollEnabled and "ON" or "OFF"
@@ -935,5 +962,5 @@ end)
 if not ok then
     warn("[ollie] SCRIPT LỖI: " .. tostring(err))
 else
-    print("[ollie] Load thành công v65.")
+    print("[ollie] Load thành công v67.")
 end
