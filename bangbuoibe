@@ -1,5 +1,5 @@
--- bangbuoibe.lua v67
-print("[ollie] Bắt đầu load v67...")
+-- bangbuoibe.lua v73
+print("[ollie] Bắt đầu load v73...")
 
 local ok, err = pcall(function()
 print("[ollie] Bước 1: services")
@@ -25,7 +25,7 @@ local oldGui = player:WaitForChild("PlayerGui"):FindFirstChild("ollieUI"); if ol
 local coreOldGui = game:GetService("CoreGui"):FindFirstChild("ollieUI"); if coreOldGui then coreOldGui:Destroy() end
 
 for _, obj in ipairs(Workspace:GetDescendants()) do
-    if obj.Name == "ollieESP_HL" or obj.Name == "ollieESP_BB" or obj.Name == "OllieFloatBoard" then
+    if obj.Name == "ollieESP_HL" or obj.Name == "ollieESP_BB" or obj.Name == "OllieFloatBoard" or obj.Name == "OllieDragon" then
         pcall(function() obj:Destroy() end)
     end
 end
@@ -37,7 +37,7 @@ local S = {
     isOpen = false, RGBStrokes = {},
     speedEnabled = false, speedValue = 70, speedMax = 500,
     flyEnabled = false, flySpeed = 50, flySpeedMax = 100,
-    fixLagEnabled = true -- Auto bật Fix Lag
+    fixLagEnabled = true
 }
 
 local BACK_OFFSET = 15
@@ -96,7 +96,167 @@ end)
 
 task.spawn(applyFixLag)
 
-print("[ollie] Bước 6: FloatAndWalkBack")
+-- ===== DRAGON MODEL BUILDER =====
+print("[ollie] Bước 6: Dragon Model Builder")
+local function buildDragon()
+    local model = Instance.new("Model")
+    model.Name = "OllieDragon"
+    model.Parent = Workspace
+
+    local body = Instance.new("Part")
+    body.Name = "Body"
+    body.Size = Vector3.new(8, 1, 8)
+    body.Anchored = true
+    body.CanCollide = true
+    body.Transparency = 0
+    body.Material = Enum.Material.Neon
+    body.Color = Color3.fromRGB(255, 0, 255)
+    body.Parent = model
+
+    local neck = Instance.new("Part")
+    neck.Name = "Neck"
+    neck.Size = Vector3.new(2, 2, 4)
+    neck.Anchored = true
+    neck.CanCollide = false
+    neck.Material = Enum.Material.Neon
+    neck.Color = Color3.fromRGB(255, 0, 255)
+    neck.Parent = model
+
+    local head = Instance.new("Part")
+    head.Name = "Head"
+    head.Size = Vector3.new(3, 2.5, 3.5)
+    head.Anchored = true
+    head.CanCollide = false
+    head.Material = Enum.Material.Neon
+    head.Color = Color3.fromRGB(255, 0, 255)
+    head.Parent = model
+
+    local snout = Instance.new("Part")
+    snout.Name = "Snout"
+    snout.Size = Vector3.new(2, 1.5, 2)
+    snout.Anchored = true
+    snout.CanCollide = false
+    snout.Material = Enum.Material.Neon
+    snout.Color = Color3.fromRGB(255, 0, 255)
+    snout.Parent = model
+
+    local eyeL = Instance.new("Part")
+    eyeL.Name = "EyeL"
+    eyeL.Size = Vector3.new(0.4, 0.4, 0.4)
+    eyeL.Shape = Enum.PartType.Ball
+    eyeL.Anchored = true
+    eyeL.CanCollide = false
+    eyeL.Material = Enum.Material.Neon
+    eyeL.Color = Color3.fromRGB(255, 0, 0)
+    eyeL.Parent = model
+
+    local eyeR = Instance.new("Part")
+    eyeR.Name = "EyeR"
+    eyeR.Size = Vector3.new(0.4, 0.4, 0.4)
+    eyeR.Shape = Enum.PartType.Ball
+    eyeR.Anchored = true
+    eyeR.CanCollide = false
+    eyeR.Material = Enum.Material.Neon
+    eyeR.Color = Color3.fromRGB(255, 0, 0)
+    eyeR.Parent = model
+
+    local wingL1 = Instance.new("Part")
+    wingL1.Name = "WingL1"
+    wingL1.Size = Vector3.new(6, 0.3, 3)
+    wingL1.Anchored = true
+    wingL1.CanCollide = false
+    wingL1.Material = Enum.Material.Neon
+    wingL1.Color = Color3.fromRGB(255, 0, 255)
+    wingL1.Parent = model
+
+    local wingL2 = Instance.new("Part")
+    wingL2.Name = "WingL2"
+    wingL2.Size = Vector3.new(5, 0.3, 2.5)
+    wingL2.Anchored = true
+    wingL2.CanCollide = false
+    wingL2.Material = Enum.Material.Neon
+    wingL2.Color = Color3.fromRGB(255, 0, 255)
+    wingL2.Parent = model
+
+    local wingR1 = Instance.new("Part")
+    wingR1.Name = "WingR1"
+    wingR1.Size = Vector3.new(6, 0.3, 3)
+    wingR1.Anchored = true
+    wingR1.CanCollide = false
+    wingR1.Material = Enum.Material.Neon
+    wingR1.Color = Color3.fromRGB(255, 0, 255)
+    wingR1.Parent = model
+
+    local wingR2 = Instance.new("Part")
+    wingR2.Name = "WingR2"
+    wingR2.Size = Vector3.new(5, 0.3, 2.5)
+    wingR2.Anchored = true
+    wingR2.CanCollide = false
+    wingR2.Material = Enum.Material.Neon
+    wingR2.Color = Color3.fromRGB(255, 0, 255)
+    wingR2.Parent = model
+
+    local tail1 = Instance.new("Part")
+    tail1.Name = "Tail1"
+    tail1.Size = Vector3.new(1.5, 1.5, 3)
+    tail1.Anchored = true
+    tail1.CanCollide = false
+    tail1.Material = Enum.Material.Neon
+    tail1.Color = Color3.fromRGB(255, 0, 255)
+    tail1.Parent = model
+
+    local tail2 = Instance.new("Part")
+    tail2.Name = "Tail2"
+    tail2.Size = Vector3.new(1, 1, 2)
+    tail2.Anchored = true
+    tail2.CanCollide = false
+    tail2.Material = Enum.Material.Neon
+    tail2.Color = Color3.fromRGB(255, 0, 255)
+    tail2.Parent = model
+
+    for i = 1, 4 do
+        local leg = Instance.new("Part")
+        leg.Name = "Leg" .. i
+        leg.Size = Vector3.new(1, 2, 1)
+        leg.Anchored = true
+        leg.CanCollide = false
+        leg.Material = Enum.Material.Neon
+        leg.Color = Color3.fromRGB(255, 0, 255)
+        leg.Parent = model
+    end
+
+    return model, body
+end
+
+local function positionDragon(model, bodyPos, yaw)
+    local body = model:FindFirstChild("Body")
+    if not body then return end
+    local rootCF = CFrame.new(bodyPos) * CFrame.Angles(0, yaw, 0)
+
+    body.CFrame = rootCF
+
+    model.Neck.CFrame = rootCF * CFrame.new(0, 1, -3.5) * CFrame.Angles(math.rad(20), 0, 0)
+    model.Head.CFrame = rootCF * CFrame.new(0, 2.5, -6) * CFrame.Angles(math.rad(15), 0, 0)
+    model.Snout.CFrame = rootCF * CFrame.new(0, 2.2, -7.5) * CFrame.Angles(math.rad(15), 0, 0)
+    model.EyeL.CFrame = rootCF * CFrame.new(-0.7, 3.2, -6.5)
+    model.EyeR.CFrame = rootCF * CFrame.new(0.7, 3.2, -6.5)
+
+    local flap = math.sin(tick() * 8) * 0.4
+    model.WingL1.CFrame = rootCF * CFrame.new(-4.5, 1.5 + flap, 0) * CFrame.Angles(0, 0, math.rad(-25 - flap * 20))
+    model.WingL2.CFrame = rootCF * CFrame.new(-7.5, 2 + flap * 1.5, 0.5) * CFrame.Angles(0, math.rad(-10), math.rad(-30 - flap * 20))
+    model.WingR1.CFrame = rootCF * CFrame.new(4.5, 1.5 + flap, 0) * CFrame.Angles(0, 0, math.rad(25 + flap * 20))
+    model.WingR2.CFrame = rootCF * CFrame.new(7.5, 2 + flap * 1.5, 0.5) * CFrame.Angles(0, math.rad(10), math.rad(30 + flap * 20))
+
+    model.Tail1.CFrame = rootCF * CFrame.new(0, 0, 4.5) * CFrame.Angles(math.rad(-15), 0, 0)
+    model.Tail2.CFrame = rootCF * CFrame.new(0, -0.5, 7) * CFrame.Angles(math.rad(-25), 0, 0)
+
+    model.Leg1.CFrame = rootCF * CFrame.new(-2.5, -1.5, -2.5)
+    model.Leg2.CFrame = rootCF * CFrame.new(2.5, -1.5, -2.5)
+    model.Leg3.CFrame = rootCF * CFrame.new(-2.5, -1.5, 2.5)
+    model.Leg4.CFrame = rootCF * CFrame.new(2.5, -1.5, 2.5)
+end
+
+print("[ollie] Bước 7: FloatAndWalkBack")
 local function FloatAndWalkBack(tag)
     print("[PW] START tag=", tostring(tag))
     if S.isMoving then print("[PW] moving, skip"); return end
@@ -121,19 +281,14 @@ local function FloatAndWalkBack(tag)
     local airY = r.Position.Y
 
     local LIFT = 13
-    local board = Instance.new("Part")
-    board.Name = "OllieFloatBoard"
-    board.Size = Vector3.new(8, 1, 8)
-    board.Anchored = true
-    board.CanCollide = true
-    board.Transparency = 0.3
-    board.Material = Enum.Material.ForceField
-    board.Color = Color3.fromRGB(255, 0, 255)
-    board.CFrame = CFrame.new(r.Position.X, airY + LIFT - 3.5, r.Position.Z)
-    board.Parent = Workspace
-    print("[PW] board Y=", board.Position.Y, " (+"..LIFT..")")
 
-    local boardTopY = board.Position.Y + 0.5
+    local dragon, board = buildDragon()
+    print("[PW] dragon built")
+
+    local bodyPos = Vector3.new(r.Position.X, airY + LIFT - 3.5, r.Position.Z)
+    board.CFrame = CFrame.new(bodyPos)
+    
+    local boardTopY = bodyPos.Y + 0.5
     local desiredRootY = boardTopY + 3
     r.CFrame = CFrame.new(r.Position.X, desiredRootY, r.Position.Z)
     r.AssemblyLinearVelocity = Vector3.zero
@@ -142,23 +297,33 @@ local function FloatAndWalkBack(tag)
     h.WalkSpeed = 33
     h:ChangeState(Enum.HumanoidStateType.Running)
 
+    local parts = {}
+    for _, p in ipairs(dragon:GetDescendants()) do
+        if p:IsA("BasePart") and p.Name ~= "EyeL" and p.Name ~= "EyeR" then
+            table.insert(parts, p)
+        end
+    end
+
     local hue = 0
     local rgbConn
     rgbConn = RunService.Heartbeat:Connect(function(dt)
-        if not board or not board.Parent then
+        if not dragon or not dragon.Parent then
             if rgbConn then rgbConn:Disconnect() end
             return
         end
         hue = (hue + dt * 0.8) % 1
-        board.Color = Color3.fromHSV(hue, 1, 1)
+        local color = Color3.fromHSV(hue, 1, 1)
+        for _, p in ipairs(parts) do
+            if p.Parent then p.Color = color end
+        end
     end)
 
     local conn
-    conn = RunService.Heartbeat:Connect(function()
+    conn = RunService.Heartbeat:Connect(function(dt)
         if not r or not r.Parent or not h or h.Health <= 0 or not S.isMoving then
             if conn then conn:Disconnect() end
             if rgbConn then rgbConn:Disconnect() end
-            if board and board.Parent then board:Destroy() end
+            if dragon and dragon.Parent then dragon:Destroy() end
             if h then h.WalkSpeed = oldSpeed end
             S.isMoving = false
             return
@@ -167,7 +332,7 @@ local function FloatAndWalkBack(tag)
         if h.MoveDirection.Magnitude > 0.8 then
             if conn then conn:Disconnect() end
             if rgbConn then rgbConn:Disconnect() end
-            if board and board.Parent then board:Destroy() end
+            if dragon and dragon.Parent then dragon:Destroy() end
             h.WalkSpeed = oldSpeed
             S.isMoving = false
             return
@@ -177,7 +342,7 @@ local function FloatAndWalkBack(tag)
         if distXZ < 5 then
             if conn then conn:Disconnect() end
             if rgbConn then rgbConn:Disconnect() end
-            if board and board.Parent then board:Destroy() end
+            if dragon and dragon.Parent then dragon:Destroy() end
             h.WalkSpeed = oldSpeed
             S.isMoving = false
             return
@@ -190,11 +355,14 @@ local function FloatAndWalkBack(tag)
             r.AssemblyLinearVelocity = Vector3.new(r.AssemblyLinearVelocity.X, 0, r.AssemblyLinearVelocity.Z)
         end
 
-        board.CFrame = CFrame.new(r.Position.X, board.Position.Y, r.Position.Z)
+        -- Rồng bay, xoay theo hướng di chuyển (không xoay tít)
+        local moveDir = (Vector3.new(targetPos.X, 0, targetPos.Z) - Vector3.new(r.Position.X, 0, r.Position.Z))
+        local faceYaw = math.atan2(moveDir.X, moveDir.Z)
+        positionDragon(dragon, Vector3.new(r.Position.X, board.Position.Y, r.Position.Z), faceYaw)
     end)
 end
 
-print("[ollie] Bước 7: TurboTween 0.1s")
+print("[ollie] Bước 8: TurboTween 0.1s")
 local function TurboTween()
     if not S.SavedPos then warn("[TURBO] no SavedPos"); return end
     if S.isMoving then print("[TURBO] đang moving, skip"); return end
@@ -213,7 +381,7 @@ local function TurboTween()
     task.delay(0.3, function() S.isMoving = false end)
 end
 
-print("[ollie] Bước 8: fly")
+print("[ollie] Bước 9: fly")
 local flyConn = nil
 local flyKeys = {W=false,A=false,S=false,D=false,Q=false,E=false}
 local flyTouch = Vector2.new(0,0)
@@ -294,7 +462,7 @@ if IS_MOBILE then
     end)
 end
 
-print("[ollie] Bước 9: setupUI")
+print("[ollie] Bước 10: setupUI")
 local function setupUI()
     local gui = Instance.new("ScreenGui")
     gui.Name = "ollieUI"
@@ -389,7 +557,7 @@ local function setupUI()
     menuName.Size = UDim2.new(1, 0, 0, 24)
     menuName.Position = UDim2.new(0, 0, 0, 38)
     menuName.BackgroundTransparency = 1
-    menuName.Text = "bangbuoibe v67"
+    menuName.Text = "bangbuoibe v73"
     menuName.TextColor3 = Color3.fromRGB(200, 200, 220)
     menuName.Font = Enum.Font.GothamBold
     menuName.TextSize = 16
@@ -812,7 +980,7 @@ local okUI, errUI = pcall(setupUI)
 if not okUI then warn("[setupUI] " .. tostring(errUI)) end
 print("[ollie] UI xong")
 
-print("[ollie] Bước 10: hook prompt")
+print("[ollie] Bước 11: hook prompt")
 local function HookPrompt(prompt)
     if not prompt:IsA("ProximityPrompt") then return end
     if prompt:GetAttribute("OllieHooked") then return end
@@ -847,7 +1015,7 @@ Workspace.DescendantAdded:Connect(function(obj)
     if obj:IsA("ProximityPrompt") then HookPrompt(obj) end
 end)
 
-print("[ollie] Bước 11: ESP+Instant loop")
+print("[ollie] Bước 12: ESP+Instant loop")
 task.spawn(function()
     while task.wait(1) do
         pcall(function()
@@ -911,7 +1079,7 @@ task.spawn(function()
     end
 end)
 
-print("[ollie] Bước 12: anti-ragdoll")
+print("[ollie] Bước 13: anti-ragdoll")
 local lastValidCFrame = nil
 local isFrozen = false
 RunService.Heartbeat:Connect(function()
@@ -956,11 +1124,11 @@ player.CharacterAdded:Connect(function()
     stopFly()
 end)
 
-print("[ollie] Bước 13: DONE — sẵn sàng")
+print("[ollie] Bước 14: DONE — sẵn sàng")
 end)
 
 if not ok then
     warn("[ollie] SCRIPT LỖI: " .. tostring(err))
 else
-    print("[ollie] Load thành công v67.")
+    print("[ollie] Load thành công v73.")
 end
