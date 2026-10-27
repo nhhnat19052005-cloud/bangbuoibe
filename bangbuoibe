@@ -1,5 +1,5 @@
--- bangbuoibe.lua v98
-print("[ollie] Bắt đầu load v98...")
+-- bangbuoibe.lua v104
+print("[ollie] Bắt đầu load v104...")
 
 local ok, err = pcall(function()
 print("[ollie] Bước 1: services")
@@ -37,7 +37,11 @@ local S = {
     isOpen = false, RGBStrokes = {},
     fixLagEnabled = true,
     manualPlatformEnabled = false,
-    sniperEnabled = false
+    sniperEnabled = false,
+    keepToolEnabled = false,
+    auraEnabled = false,
+    auraRange = 15,
+    auraTool = "Bat"
 }
 
 local BACK_OFFSET = 15
@@ -174,110 +178,8 @@ local function formatMoney(val)
     return tostring(val)
 end
 
-print("[ollie] Bước 7: FloatAndWalkBack")
-local function FloatAndWalkBack(tag)
-    print("[PW] START tag=", tostring(tag))
-    if S.isMoving then print("[PW] moving, skip"); return end
-    if not S.SavedPos then warn("[PW] no SavedPos"); return end
-    local c = player.Character
-    local r = c and c:FindFirstChild("HumanoidRootPart")
-    local h = c and c:FindFirstChildOfClass("Humanoid")
-    if not r or not h then print("[PW] no root/hum"); return end
-
-    S.isMoving = true
-    local targetPos = S.SavedPos
-    local oldSpeed = h.WalkSpeed
-    local startY = r.Position.Y
-    local spinAngle = 0
-
-    h.Jump = true
-    task.wait(0.15)
-    if r.Position.Y - startY < 2 then
-        r.CFrame = r.CFrame + Vector3.new(0, 5, 0)
-        print("[PW] force CFrame up")
-    end
-    task.wait(0.1)
-    local airY = r.Position.Y
-
-    local LIFT = 8
-    local board = Instance.new("Part")
-    board.Name = "OllieFloatBoard"
-    board.Size = Vector3.new(8, 1, 8)
-    board.Anchored = true
-    board.CanCollide = true
-    board.Transparency = 0
-    board.Material = Enum.Material.Neon
-    board.Color = Color3.fromRGB(255, 0, 255)
-    board.CFrame = CFrame.new(r.Position.X, airY + LIFT - 3.5, r.Position.Z)
-    board.Parent = Workspace
-    print("[PW] board Y=", board.Position.Y, " (+"..LIFT..")")
-
-    local boardTopY = board.Position.Y + 0.5
-    local desiredRootY = boardTopY + 3
-    r.CFrame = CFrame.new(r.Position.X, desiredRootY, r.Position.Z)
-    r.AssemblyLinearVelocity = Vector3.zero
-    r.AssemblyAngularVelocity = Vector3.zero
-
-    h.WalkSpeed = 30
-    h:ChangeState(Enum.HumanoidStateType.Running)
-
-    local hue = 0
-    local rgbConn
-    rgbConn = RunService.Heartbeat:Connect(function(dt)
-        if not board or not board.Parent then
-            if rgbConn then rgbConn:Disconnect() end
-            return
-        end
-        hue = (hue + dt * 0.8) % 1
-        board.Color = Color3.fromHSV(hue, 1, 1)
-    end)
-
-    local conn
-    conn = RunService.Heartbeat:Connect(function(dt)
-        if not r or not r.Parent or not h or h.Health <= 0 or not S.isMoving then
-            if conn then conn:Disconnect() end
-            if rgbConn then rgbConn:Disconnect() end
-            if board and board.Parent then board:Destroy() end
-            if h then h.WalkSpeed = oldSpeed end
-            S.isMoving = false
-            print("[PW] END die/stop")
-            return
-        end
-
-        if h.MoveDirection.Magnitude > 0.8 then
-            if conn then conn:Disconnect() end
-            if rgbConn then rgbConn:Disconnect() end
-            if board and board.Parent then board:Destroy() end
-            h.WalkSpeed = oldSpeed
-            S.isMoving = false
-            print("[PW] END override")
-            return
-        end
-
-        local distXZ = (Vector3.new(targetPos.X, 0, targetPos.Z) - Vector3.new(r.Position.X, 0, r.Position.Z)).Magnitude
-        if distXZ < 3 then
-            if conn then conn:Disconnect() end
-            if rgbConn then rgbConn:Disconnect() end
-            if board and board.Parent then board:Destroy() end
-            h.WalkSpeed = oldSpeed
-            S.isMoving = false
-            print("[PW] END arrived")
-            return
-        end
-
-        h:MoveTo(Vector3.new(targetPos.X, r.Position.Y, targetPos.Z))
-        r.AssemblyLinearVelocity = Vector3.new(r.AssemblyLinearVelocity.X, 0, r.AssemblyLinearVelocity.Z)
-        if math.abs(r.Position.Y - desiredRootY) > 0.5 then
-            r.CFrame = CFrame.new(r.Position.X, desiredRootY, r.Position.Z)
-        end
-
-        spinAngle = spinAngle + dt * 15
-        board.CFrame = CFrame.new(r.Position.X, board.Position.Y, r.Position.Z) * CFrame.Angles(0, spinAngle, 0)
-    end)
-end
-
-print("[ollie] Bước 8: TurboTween 0.1s")
-local function TurboTween()
+print("[ollie] Bước 7: TurboTween 0.1s")
+local function TurboTween(isManual)
     if not S.SavedPos then warn("[TURBO] no SavedPos"); return end
     if S.isMoving then print("[TURBO] đang moving, skip"); return end
     local c = player.Character
@@ -291,9 +193,75 @@ local function TurboTween()
     t.Completed:Connect(function()
         S.isMoving = false
         print("[TURBO] Done")
+        if not isManual then
+            S.autoTweenEnabled = false
+            if _G.UpdateAutoTweenUI then _G.UpdateAutoTweenUI() end
+        end
     end)
-    task.delay(0.3, function() S.isMoving = false end)
+    task.delay(0.3, function() 
+        if not isManual then
+            S.isMoving = false 
+        end
+    end)
 end
+
+-- ===== AURA LOGIC =====
+print("[ollie] Bước 8: Aura Logic")
+local function equipAuraWeapon()
+    local char = player.Character
+    if not char then return end
+    if char:FindFirstChildOfClass("Tool") then return end
+    
+    local bp = player:FindFirstChild("Backpack")
+    if bp then
+        local targetTool = bp:FindFirstChild(S.auraTool)
+        if targetTool and targetTool:IsA("Tool") then
+            targetTool.Parent = char
+        end
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if not S.auraEnabled then continue end
+        
+        equipAuraWeapon()
+
+        local c = player.Character
+        if not c then continue end
+        local hrp = c:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+        
+        local tool = c:FindFirstChildOfClass("Tool")
+        if not tool then continue end
+        local handle = tool:FindFirstChild("Handle")
+        
+        for _, otherPlr in ipairs(Players:GetPlayers()) do
+            if otherPlr ~= player and otherPlr.Character then
+                local otherHrp = otherPlr.Character:FindFirstChild("HumanoidRootPart")
+                local otherHum = otherPlr.Character:FindFirstChildOfClass("Humanoid")
+                
+                if otherHrp and otherHum and otherHum.Health > 0 then
+                    local dist = (hrp.Position - otherHrp.Position).Magnitude
+                    
+                    if dist <= S.auraRange then
+                        pcall(function()
+                            tool:Activate()
+                        end)
+                        
+                        if handle then
+                            pcall(function()
+                                firetouchinterest(handle, otherHrp, 0)
+                                task.wait()
+                                firetouchinterest(handle, otherHrp, 1)
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
 
 print("[ollie] Bước 9: setupUI")
 local function setupUI()
@@ -340,7 +308,7 @@ local function setupUI()
     gradient.Rotation = 90
 
     local titleTxt = Instance.new("TextLabel", island)
-    titleTxt.Size = UDim2.new(0, 85, 0, 38)
+    titleTxt.Size = UDim2.new(0, 110, 0, 38)
     titleTxt.Position = UDim2.new(0, 5, 0, 0)
     titleTxt.BackgroundTransparency = 1
     titleTxt.Text = "FPS: ... | MS: ..."
@@ -349,18 +317,6 @@ local function setupUI()
     titleTxt.TextSize = 10
     titleTxt.TextXAlignment = Enum.TextXAlignment.Left
     titleTxt.ZIndex = 11
-
-    local swQuickTween = Instance.new("TextButton", island)
-    swQuickTween.Size = UDim2.new(0, 44, 0, 20)
-    swQuickTween.Position = UDim2.new(1, -96, 0.5, -10) 
-    swQuickTween.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
-    swQuickTween.Text = "TWEEN"
-    swQuickTween.TextColor3 = Color3.new(1, 1, 1)
-    swQuickTween.Font = Enum.Font.GothamBold
-    swQuickTween.TextSize = 9
-    swQuickTween.BorderSizePixel = 0
-    swQuickTween.ZIndex = 11
-    Instance.new("UICorner", swQuickTween).CornerRadius = UDim.new(1, 0)
 
     local btnQuickTurbo = Instance.new("TextButton", island)
     btnQuickTurbo.Size = UDim2.new(0, 44, 0, 20)
@@ -387,7 +343,6 @@ local function setupUI()
     btnClose.Active = true
     Instance.new("UICorner", btnClose).CornerRadius = UDim.new(1, 0)
 
-    -- MENU NAME VỚI RGB DỊU HƠN
     local menuName = Instance.new("TextLabel", island)
     menuName.Size = UDim2.new(1, 0, 0, 24)
     menuName.Position = UDim2.new(0, 0, 0, 38)
@@ -415,7 +370,6 @@ local function setupUI()
 
     -- ============= SIDEBAR LAYOUT =============
     
-    -- Left Sidebar
     local sidebar = Instance.new("Frame", island)
     sidebar.Size = UDim2.new(0, 100, 1, -100)
     sidebar.Position = UDim2.new(0, 10, 0, 80)
@@ -456,7 +410,6 @@ local function setupUI()
     local sideServerBtn = createSideTab("SERVER", 2)
     local sideMiscBtn = createSideTab("MISC", 3)
 
-    -- Right Content Area
     local rightContent = Instance.new("ScrollingFrame", island)
     rightContent.Size = UDim2.new(1, -130, 1, -100)
     rightContent.Position = UDim2.new(0, 120, 0, 80)
@@ -470,7 +423,6 @@ local function setupUI()
     rightContent.ScrollingDirection = Enum.ScrollingDirection.Y
     rightContent.Active = true
 
-    -- Main frame inside right
     local mainFrame = Instance.new("Frame", rightContent)
     mainFrame.Size = UDim2.new(1, 0, 0, 0)
     mainFrame.AutomaticSize = Enum.AutomaticSize.Y
@@ -481,7 +433,6 @@ local function setupUI()
     mainList.Padding = UDim.new(0, 8)
     mainList.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- Server frame inside right
     local serverFrame = Instance.new("Frame", rightContent)
     serverFrame.Size = UDim2.new(1, 0, 0, 0)
     serverFrame.AutomaticSize = Enum.AutomaticSize.Y
@@ -493,7 +444,6 @@ local function setupUI()
     serverList.Padding = UDim.new(0, 8)
     serverList.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- Misc frame inside right
     local miscFrame = Instance.new("Frame", rightContent)
     miscFrame.Size = UDim2.new(1, 0, 0, 0)
     miscFrame.AutomaticSize = Enum.AutomaticSize.Y
@@ -505,7 +455,6 @@ local function setupUI()
     miscList.Padding = UDim.new(0, 8)
     miscList.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- Dynamic canvas update
     mainList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         if mainFrame.Visible then rightContent.CanvasSize = UDim2.new(0, 0, 0, mainList.AbsoluteContentSize.Y + 10) end
     end)
@@ -517,7 +466,6 @@ local function setupUI()
     end)
 
     local function switchTab(tab)
-        -- Ẩn tất cả tab trước khi hiển thị tab mới
         mainFrame.Visible = false
         serverFrame.Visible = false
         miscFrame.Visible = false
@@ -530,7 +478,6 @@ local function setupUI()
         sideMiscBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
         rightContent.CanvasPosition = Vector2.new(0, 0)
 
-        -- Hiệu ứng búng 3D (Bounce)
         local targetFrame
         if tab == "main" then
             targetFrame = mainFrame
@@ -551,10 +498,7 @@ local function setupUI()
 
         if targetFrame then
             targetFrame.Visible = true
-            -- Tween hiệu ứng nảy (trượt từ dưới lên và scale nhẹ)
             targetFrame.Position = UDim2.new(0, 0, 0, 20)
-            targetFrame.Size = UDim2.new(1, 0, 0, 0)
-            
             local tw = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             TweenService:Create(targetFrame, tw, {Position = UDim2.new(0, 0, 0, 0)}):Play()
         end
@@ -564,7 +508,6 @@ local function setupUI()
     sideServerBtn.MouseButton1Click:Connect(function() switchTab("server") end)
     sideMiscBtn.MouseButton1Click:Connect(function() switchTab("misc") end)
 
-    -- Helper Functions for UI
     local function createBtn(parent, text, color, layoutOrder)
         local btn = Instance.new("TextButton", parent)
         btn.Size = UDim2.new(1, -12, 0, 38)
@@ -622,7 +565,6 @@ local function setupUI()
         switch.ZIndex = 13
         Instance.new("UICorner", switch).CornerRadius = UDim.new(1, 0)
         
-        -- Thêm RGB Stroke cho cái nút Toggle
         local sBtn = Instance.new("UIStroke", switch)
         sBtn.Color = Color3.fromRGB(255, 0, 128)
         sBtn.Thickness = 1.5
@@ -637,7 +579,7 @@ local function setupUI()
     local btnTurboMenu = createBtn(mainFrame, "⚡ TWEEN SIÊU TỐC 0.1s", Color3.fromRGB(255, 140, 0), 2)
     local swManualPlat = createToggle(mainFrame, "🛹 Platform Thủ Công", 3, S.manualPlatformEnabled)
     local swRagdoll = createToggle(mainFrame, "Anti-Ragdoll", 4, S.ragdollEnabled)
-    local swAutoTweenInside = createToggle(mainFrame, "Auto Tween Buy/Steal", 5, S.autoTweenEnabled)
+    local swAutoTweenInside = createToggle(mainFrame, "Auto Steal (0.1s)", 5, S.autoTweenEnabled)
 
     -- Build Server Tab
     local btnHop = createBtn(serverFrame, "🌐 HOP SERVER NGẪU NHIÊN", Color3.fromRGB(150, 50, 200), 1)
@@ -677,10 +619,92 @@ local function setupUI()
         task.delay(0.1, function() sniperLogFrame.CanvasPosition = Vector2.new(0, sniperLogList.AbsoluteContentSize.Y) end)
     end
 
-    -- Build Misc Tab (ESP, Instant, Fix Lag)
+    -- Build Misc Tab
     local swESP = createToggle(miscFrame, "ESP Người Chơi", 1, S.espEnabled)
     local swInstant = createToggle(miscFrame, "Instant Prompt", 2, S.instantEnabled)
     local swFixLag = createToggle(miscFrame, "🚀 Fix Lag (Auto ON)", 3, S.fixLagEnabled)
+    local swKeepTool = createToggle(miscFrame, "🛠️ Keep Tool (Giữ vũ khí)", 4, S.keepToolEnabled)
+    
+    -- Thêm Aura vào Misc
+    local swAura = createToggle(miscFrame, "⚔️ Auto Hit Aura", 5, S.auraEnabled)
+    
+    local auraFrame = Instance.new("Frame", miscFrame)
+    auraFrame.Size = UDim2.new(1, -12, 0, 34)
+    auraFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    auraFrame.BorderSizePixel = 0
+    auraFrame.LayoutOrder = 6
+    auraFrame.ZIndex = 12
+    Instance.new("UICorner", auraFrame).CornerRadius = UDim.new(0, 10)
+    local sAura = Instance.new("UIStroke", auraFrame)
+    sAura.Color = Color3.fromRGB(255, 0, 128)
+    sAura.Thickness = 1.5
+    sAura.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    table.insert(S.RGBStrokes, sAura)
+
+    local auraRangeLbl = Instance.new("TextLabel", auraFrame)
+    auraRangeLbl.Size = UDim2.new(0.4, 0, 1, 0)
+    auraRangeLbl.Position = UDim2.new(0, 10, 0, 0)
+    auraRangeLbl.BackgroundTransparency = 1
+    auraRangeLbl.Text = "Range: " .. S.auraRange
+    auraRangeLbl.TextColor3 = Color3.fromRGB(200, 200, 210)
+    auraRangeLbl.Font = Enum.Font.GothamBold
+    auraRangeLbl.TextSize = 11
+    auraRangeLbl.TextXAlignment = Enum.TextXAlignment.Left
+    auraRangeLbl.ZIndex = 13
+
+    local function createAuraBtn(text, posX, bgColor)
+        local b = Instance.new("TextButton", auraFrame)
+        b.Size = UDim2.new(0, 24, 0, 22)
+        b.Position = UDim2.new(1, posX, 0.5, -11)
+        b.BackgroundColor3 = bgColor
+        b.Text = text
+        b.TextColor3 = Color3.new(1, 1, 1)
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 12
+        b.ZIndex = 13
+        Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+        return b
+    end
+
+    local btnAuraMinus = createAuraBtn("-", -60, Color3.fromRGB(200, 50, 50))
+    local btnAuraPlus = createAuraBtn("+", -30, Color3.fromRGB(50, 180, 50))
+
+    local function updateAuraUI()
+        auraRangeLbl.Text = "Range: " .. S.auraRange
+    end
+
+    btnAuraMinus.MouseButton1Click:Connect(function()
+        S.auraRange = math.max(5, S.auraRange - 5)
+        updateAuraUI()
+    end)
+    btnAuraPlus.MouseButton1Click:Connect(function()
+        S.auraRange = math.min(50, S.auraRange + 5)
+        updateAuraUI()
+    end)
+
+    local auraToolBox = Instance.new("TextBox", miscFrame)
+    auraToolBox.Size = UDim2.new(1, -12, 0, 34)
+    auraToolBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    auraToolBox.Text = S.auraTool
+    auraToolBox.TextColor3 = Color3.fromRGB(200, 200, 210)
+    auraToolBox.PlaceholderText = "Tên vũ khí tự cầm (VD: Bat)"
+    auraToolBox.Font = Enum.Font.Gotham
+    auraToolBox.TextSize = 11
+    auraToolBox.LayoutOrder = 7
+    auraToolBox.ZIndex = 12
+    Instance.new("UICorner", auraToolBox).CornerRadius = UDim.new(0, 10)
+    
+    local sTool = Instance.new("UIStroke", auraToolBox)
+    sTool.Color = Color3.fromRGB(255, 0, 128)
+    sTool.Thickness = 1.5
+    sTool.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    table.insert(S.RGBStrokes, sTool)
+
+    auraToolBox.FocusLost:Connect(function()
+        if auraToolBox.Text ~= "" then
+            S.auraTool = auraToolBox.Text
+        end
+    end)
 
     -- Server Logic
     btnHop.MouseButton1Click:Connect(function()
@@ -806,30 +830,35 @@ local function setupUI()
             task.delay(2, function() btnSave.Text = "📍 LƯU VỊ TRÍ (LÙI 15)"; btnSave.BackgroundColor3 = Color3.fromRGB(40, 100, 200) end)
         end
     end)
-    btnTurboMenu.MouseButton1Click:Connect(TurboTween)
-    btnQuickTurbo.MouseButton1Click:Connect(TurboTween)
-    swRagdoll.MouseButton1Click:Connect(function() S.ragdollEnabled = not S.ragdollEnabled; swRagdoll.Text = S.ragdollEnabled and "ON" or "OFF"; swRagdoll.BackgroundColor3 = S.ragdollEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
-    swESP.MouseButton1Click:Connect(function() S.espEnabled = not S.espEnabled; swESP.Text = S.espEnabled and "ON" or "OFF"; swESP.BackgroundColor3 = S.espEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
-    swInstant.MouseButton1Click:Connect(function() S.instantEnabled = not S.instantEnabled; swInstant.Text = S.instantEnabled and "ON" or "OFF"; swInstant.BackgroundColor3 = S.instantEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
-
-    local function ToggleAutoTween()
-        S.autoTweenEnabled = not S.autoTweenEnabled
-        swQuickTween.BackgroundColor3 = S.autoTweenEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
+    btnTurboMenu.MouseButton1Click:Connect(function() TurboTween(true) end)
+    btnQuickTurbo.MouseButton1Click:Connect(function() TurboTween(true) end)
+    
+    -- Setup UI toggle callbacks
+    _G.UpdateAutoTweenUI = function()
         swAutoTweenInside.Text = S.autoTweenEnabled and "ON" or "OFF"
         swAutoTweenInside.BackgroundColor3 = S.autoTweenEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100)
     end
-    swQuickTween.MouseButton1Click:Connect(ToggleAutoTween)
+
+    local function ToggleAutoTween()
+        S.autoTweenEnabled = not S.autoTweenEnabled
+        _G.UpdateAutoTweenUI()
+    end
     swAutoTweenInside.MouseButton1Click:Connect(ToggleAutoTween)
 
+    swRagdoll.MouseButton1Click:Connect(function() S.ragdollEnabled = not S.ragdollEnabled; swRagdoll.Text = S.ragdollEnabled and "ON" or "OFF"; swRagdoll.BackgroundColor3 = S.ragdollEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
+    swESP.MouseButton1Click:Connect(function() S.espEnabled = not S.espEnabled; swESP.Text = S.espEnabled and "ON" or "OFF"; swESP.BackgroundColor3 = S.espEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
+    swInstant.MouseButton1Click:Connect(function() S.instantEnabled = not S.instantEnabled; swInstant.Text = S.instantEnabled and "ON" or "OFF"; swInstant.BackgroundColor3 = S.instantEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
     swManualPlat.MouseButton1Click:Connect(function() toggleManualPlatform(); swManualPlat.Text = S.manualPlatformEnabled and "ON" or "OFF"; swManualPlat.BackgroundColor3 = S.manualPlatformEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
+    swKeepTool.MouseButton1Click:Connect(function() S.keepToolEnabled = not S.keepToolEnabled; swKeepTool.Text = S.keepToolEnabled and "ON" or "OFF"; swKeepTool.BackgroundColor3 = S.keepToolEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
+    swAura.MouseButton1Click:Connect(function() S.auraEnabled = not S.auraEnabled; swAura.Text = S.auraEnabled and "ON" or "OFF"; swAura.BackgroundColor3 = S.auraEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(100, 100, 100) end)
+    
     _G.UpdateManualBtn = function() swManualPlat.Text = "OFF"; swManualPlat.BackgroundColor3 = Color3.fromRGB(100, 100, 100) end
 
-    -- RGB UI (Màu pastel nhẹ nhàng)
+    -- RGB UI
     task.spawn(function()
         local hue = 0
         while gui.Parent do
             hue = (hue + 0.01) % 1
-            -- Giảm Saturation (0.6) và tăng Value (0.9) để màu dịu hơn
             local color = Color3.fromHSV(hue, 0.6, 0.9)
             for i = 1, #S.RGBStrokes do
                 if S.RGBStrokes[i] and S.RGBStrokes[i].Parent and S.RGBStrokes[i]:IsA("UIStroke") then 
@@ -847,7 +876,7 @@ local function setupUI()
         S.isOpen = not S.isOpen
         local tw = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         if S.isOpen then
-            titleTxt.Visible = false; swQuickTween.Visible = false; btnQuickTurbo.Visible = false
+            titleTxt.Visible = false; btnQuickTurbo.Visible = false
             btnClose.Visible = true; menuName.Visible = true; sidebar.Visible = true; rightContent.Visible = true
             switchTab("main")
             TweenService:Create(island, tw, {Size = UDim2.new(0, 480, 0, 330), Position = UDim2.new(0.5, -240, 0, 10)}):Play()
@@ -859,7 +888,7 @@ local function setupUI()
             TweenService:Create(islandCorner, tw, {CornerRadius = UDim.new(1, 0)}):Play()
             TweenService:Create(shadow, tw, {Size = UDim2.new(0, 215, 0, 38), Position = UDim2.new(0.5, -107, 0, 15)}):Play()
             task.delay(0.25, function() 
-                titleTxt.Visible = true; swQuickTween.Visible = true; btnQuickTurbo.Visible = true 
+                titleTxt.Visible = true; btnQuickTurbo.Visible = true 
             end)
         end
     end
@@ -901,16 +930,12 @@ local function HookPrompt(prompt)
 
     prompt.Triggered:Connect(function(plr)
         if plr ~= player then return end
-        local act = string.lower(prompt.ActionText)
         if not S.autoTweenEnabled then return end
 
-        local isBuy = act:find("buy") or act:find("mua")
-        local isSteal = act:find("steal") or act:find("cướp")
-
-        if isBuy then
-            task.spawn(function() FloatAndWalkBack(act) end)
-        elseif isSteal then
-            task.spawn(TurboTween)
+        local act = string.lower(prompt.ActionText)
+        
+        if act:find("steal") or act:find("cướp") then
+            task.spawn(function() TurboTween(false) end)
         end
     end)
 end
@@ -990,43 +1015,98 @@ task.spawn(function()
     end
 end)
 
-print("[ollie] Bước 12: anti-ragdoll")
+print("[ollie] Bước 12: Anti-Ragdoll & Keep Tool v104")
 local lastValidCFrame = nil
 local isFrozen = false
+
+local function setupAntiRagdoll(char)
+    local hum = char:WaitForChild("Humanoid", 5)
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+        
+        if not hum:GetAttribute("OllieToolHooked") then
+            hum:SetAttribute("OllieToolHooked", true)
+            local oldUnequip = hum.UnequipTools
+            hum.UnequipTools = function(...)
+                if S.keepToolEnabled then
+                    return 
+                else
+                    return oldUnequip(...)
+                end
+            end
+        end
+    end
+end
+
+if player.Character then setupAntiRagdoll(player.Character) end
+player.CharacterAdded:Connect(setupAntiRagdoll)
+
 RunService.Heartbeat:Connect(function()
-    if not S.ragdollEnabled then return end
-    if S.isMoving then return end
     local c = player.Character
     if not c then return end
     local hum = c:FindFirstChildOfClass("Humanoid")
     local rt = c:FindFirstChild("HumanoidRootPart")
     if not hum or not rt then return end
-    if not isFrozen and not hum.PlatformStand and hum:GetState() ~= Enum.HumanoidStateType.Physics then
-        lastValidCFrame = rt.CFrame
+    
+    if S.keepToolEnabled then
+        local charTool = c:FindFirstChildOfClass("Tool")
+        if not charTool then
+            local bp = player:FindFirstChild("Backpack")
+            if bp then
+                local bpTool = bp:FindFirstChildOfClass("Tool")
+                if bpTool then
+                    bpTool.Parent = c 
+                end
+            end
+        end
     end
-    if hum.PlatformStand or hum:GetState() == Enum.HumanoidStateType.Physics then
+
+    if not S.ragdollEnabled then return end
+    if S.isMoving then return end
+
+    local isRagdolled = hum.PlatformStand or 
+                        hum:GetState() == Enum.HumanoidStateType.Physics or 
+                        hum:GetState() == Enum.HumanoidStateType.FallingDown or 
+                        hum:GetState() == Enum.HumanoidStateType.Ragdoll
+
+    if isRagdolled then
         if not isFrozen and lastValidCFrame then
             isFrozen = true
             rt.Anchored = true
+            
             task.spawn(function()
                 local lockCFrame = CFrame.new(lastValidCFrame.Position, lastValidCFrame.Position + lastValidCFrame.LookVector)
                 rt.CFrame = lockCFrame
+                rt.Velocity = Vector3.zero
+                rt.RotVelocity = Vector3.zero
                 hum.PlatformStand = false
+                
                 hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+                task.wait(0.1)
+                
                 local startTime = tick()
-                while tick() - startTime < 0.5 do
+                while tick() - startTime < 0.3 do
                     if not rt or not rt.Parent then break end
                     rt.CFrame = lockCFrame
                     rt.Velocity = Vector3.zero
                     rt.RotVelocity = Vector3.zero
+                    hum.PlatformStand = false
+                    hum:ChangeState(Enum.HumanoidStateType.Running)
                     task.wait()
                 end
+                
                 if rt and rt.Parent then
                     rt.Anchored = false
                     hum:ChangeState(Enum.HumanoidStateType.Running)
                 end
                 isFrozen = false
             end)
+        end
+    else
+        if not isFrozen then
+            lastValidCFrame = rt.CFrame
         end
     end
 end)
@@ -1037,5 +1117,5 @@ end)
 if not ok then
     warn("[ollie] SCRIPT LỖI: " .. tostring(err))
 else
-    print("[ollie] Load thành công v98.")
+    print("[ollie] Load thành công v104.")
 end
