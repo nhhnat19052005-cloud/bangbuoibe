@@ -1,7 +1,7 @@
 -- ============================================================
--- BANGBUOIBE67 — FINAL ULTIMATE HUB (RGB RAINBOW HIGHLIGHT)
--- Đã đổi Highlight thành hiệu ứng RGB Rainbow nhấp nháy.
--- Text ESP: Name | Tool | Studs.
+-- BANGBUOIBE67 — FINAL ULTIMATE HUB (AUTO BOOST & ESP)
+-- Mặc định bật sẵn FPS Boost và ESP Player.
+-- ESP Text rút gọn: Name | Studs. Đã xóa Tool.
 -- ============================================================
 
 local Players          = game:GetService("Players")
@@ -25,8 +25,8 @@ local CONFIG = {
     AntiRagdoll = true,
     InstantPrompt = true,
     AntiPause = true,
-    FPSBoost = false,
-    ESPPlayers = false,
+    FPSBoost = true,      -- BẬT SẴN
+    ESPPlayers = true,    -- BẬT SẴN
     SavedPos = Vector3.new(-2.8, 3.0, 18.4),
 }
 
@@ -39,7 +39,7 @@ local STATE = {
     Connections = {}
 }
 
-local ESP_Drawings = {}
+local ESP_GUIS = {}
 local ESP_Highlights = {}
 
 getgenv().BangBuoiCleanup = function()
@@ -49,10 +49,8 @@ getgenv().BangBuoiCleanup = function()
         pcall(function() getgenv().BangBuoiUI:Destroy() end)
         getgenv().BangBuoiUI = nil
     end
-    for _, d in pairs(ESP_Drawings) do
-        for _, obj in pairs(d) do
-            if obj.Remove then pcall(function() obj:Remove() end) end
-        end
+    for _, gui in pairs(ESP_GUIS) do
+        if gui then pcall(function() gui:Destroy() end) end
     end
     for _, h in pairs(ESP_Highlights) do
         if h then pcall(function() h:Destroy() end) end
@@ -219,15 +217,12 @@ local function rejoinServer()
 end
 
 -- ==========================================
--- 2. ESP PLAYER LOGIC (IY STYLE + TOOL + RGB RAINBOW)
+-- 2. ESP PLAYER LOGIC (NAME & STUDS ONLY)
 -- ==========================================
 local function updateESP()
-    local Camera = Workspace.CurrentCamera
-    if not Camera then return end
-
     if not CONFIG.ESPPlayers then
-        for _, d in pairs(ESP_Drawings) do
-            if d.Name then d.Name.Visible = false end
+        for _, gui in pairs(ESP_GUIS) do
+            if gui then gui.Enabled = false end
         end
         for _, h in pairs(ESP_Highlights) do
             if h then h.Enabled = false end
@@ -245,34 +240,39 @@ local function updateESP()
             local hum = char:FindFirstChildOfClass("Humanoid")
 
             if head and hum and hrp and hum.Health > 0 then
-                local headScreen, headOnScreen = Camera:WorldToViewportPoint(head.Position)
-                local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
+                local dist = (Workspace.CurrentCamera.CFrame.Position - hrp.Position).Magnitude
                 
-                local heldTool = char:FindFirstChildOfClass("Tool")
-                local toolName = heldTool and heldTool.Name or "None"
+                if not ESP_GUIS[player] then
+                    local bg = Instance.new("BillboardGui")
+                    bg.Name = "ESP_BG"
+                    bg.Size = UDim2.new(0, 150, 0, 50) -- Thu hẹp hơn nữa vì bỏ Tool
+                    bg.StudsOffset = Vector3.new(0, 2.5, 0)
+                    bg.AlwaysOnTop = true
+                    bg.Adornee = head
+                    bg.Parent = head
+                    
+                    local txt = Instance.new("TextLabel")
+                    txt.Name = "ESP_Text"
+                    txt.Size = UDim2.new(1, 0, 1, 0)
+                    txt.BackgroundTransparency = 1
+                    txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    txt.TextStrokeTransparency = 0
+                    txt.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                    txt.Font = Enum.Font.GothamBold
+                    txt.TextSize = 18 -- Size to
+                    txt.Parent = bg
+                    
+                    ESP_GUIS[player] = bg
+                end
                 
-                if not ESP_Drawings[player] then
-                    ESP_Drawings[player] = {
-                        Name = Drawing.new("Text")
-                    }
-                    ESP_Drawings[player].Name.Center = true
-                    ESP_Drawings[player].Name.Outline = true
-                    ESP_Drawings[player].Name.Size = 14
-                    ESP_Drawings[player].Name.Font = 2
-                    ESP_Drawings[player].Name.Color = Color3.fromRGB(255, 255, 255)
+                local bg = ESP_GUIS[player]
+                if bg and bg:FindFirstChild("ESP_Text") then
+                    bg.Enabled = true
+                    bg.Adornee = head
+                    -- Format ngắn gọn: Tên | Khoảng cách
+                    bg.ESP_Text.Text = string.format("%s | %d", player.Name, math.floor(dist))
                 end
 
-                local d = ESP_Drawings[player]
-                
-                if headOnScreen then
-                    d.Name.Visible = true
-                    d.Name.Text = string.format("Name: %s | Tool: %s | Studs: %d", player.Name, toolName, math.floor(dist))
-                    d.Name.Position = Vector2.new(headScreen.X, headScreen.Y - 25)
-                else
-                    d.Name.Visible = false
-                end
-
-                -- Highlight RGB Rainbow
                 if not ESP_Highlights[char] then
                     local h = Instance.new("Highlight")
                     h.Parent = char
@@ -287,7 +287,7 @@ local function updateESP()
                 ESP_Highlights[char].FillColor = rainbowColor
                 ESP_Highlights[char].OutlineColor = rainbowColor
             else
-                if ESP_Drawings[player] then ESP_Drawings[player].Name.Visible = false end
+                if ESP_GUIS[player] then ESP_GUIS[player].Enabled = false end
                 if ESP_Highlights[char] then ESP_Highlights[char].Enabled = false end
             end
         end
@@ -295,7 +295,7 @@ local function updateESP()
 end
 
 -- ==========================================
--- 3. UI SETUP
+-- 3. UI SETUP (CHUẨN HUONGCUTO)
 -- ==========================================
 local function getParent()
     local ok, cg = pcall(function() return game:GetService("CoreGui") end)
@@ -697,7 +697,7 @@ makeAction(tabMainPage, "TRIGGER TURBO", Color3.fromRGB(200, 50, 50), triggerTur
 makeAction(tabMainPage, "TRIGGER BACK", Color3.fromRGB(50, 150, 200), triggerBack)
 
 -- CHỨC NĂNG TAB SERVER
-makeToggle(tabServerPage, "ESP PLAYER (RGB)", CONFIG.ESPPlayers, function(v) CONFIG.ESPPlayers = v end)
+makeToggle(tabServerPage, "ESP PLAYER (BILLBOARD)", CONFIG.ESPPlayers, function(v) CONFIG.ESPPlayers = v end)
 makeToggle(tabServerPage, "ANTI GAME PAUSED", CONFIG.AntiPause, function(v) CONFIG.AntiPause = v end)
 makeToggle(tabServerPage, "FPS BOOSTER", CONFIG.FPSBoost, function(v) 
     CONFIG.FPSBoost = v 
@@ -767,7 +767,7 @@ local statUpdateTimer = 0
 table.insert(STATE.Connections, RunService.RenderStepped:Connect(function(dt)
     if not STATE.Running then return end
 
-    -- RGB UI
+    -- RGB
     local time = tick() * 100
     for i = #STATE.ActiveGradients, 1, -1 do
         local grad = STATE.ActiveGradients[i]
@@ -832,4 +832,4 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
-print("[bangbuoibe67] Loaded. ESP Highlight is RGB Rainbow.")
+print("[bangbuoibe67] Loaded. FPS Boost & ESP enabled by default. Tool ESP removed.")
