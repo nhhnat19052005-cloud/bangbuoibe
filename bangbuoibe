@@ -1,7 +1,8 @@
 -- ============================================================
--- BANGBUOIBE67 — EXACT HUONGCUTO UI (SMART ANTI-RAGDOLL)
--- Fix: Chỉ Anti-Ragdoll khi thực sự dính trạng thái ngã.
--- Không cấm Physics, không chặn di chuyển hay nhảy bình thường.
+-- BANGBUOIBE67 — FINAL ULTIMATE HUB
+-- Bao gồm: Turbo, Back, WalkSpeed 155, Smart Anti-Ragdoll.
+-- Instant Prompt, Anti-Pause, FPS Booster, Server Hop.
+-- UI chuẩn Huongcuto, không lỗi, không stack.
 -- ============================================================
 
 local Players          = game:GetService("Players")
@@ -12,6 +13,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService     = game:GetService("TweenService")
 local Workspace        = game:GetService("Workspace")
 local HttpService      = game:GetService("HttpService")
+local Lighting         = game:GetService("Lighting")
 local LP = Players.LocalPlayer
 
 -- ==========================================
@@ -23,6 +25,8 @@ local CONFIG = {
     WalkSpeed = 155,
     AntiRagdoll = true,
     InstantPrompt = true,
+    AntiPause = true,
+    FPSBoost = false,
     SavedPos = Vector3.new(-2.8, 3.0, 18.4),
 }
 
@@ -66,6 +70,7 @@ local function doRainbowTween(targetCFrame)
     local oldWS, oldJP = hum.WalkSpeed, hum.JumpPower
     hum.WalkSpeed = 0
     hum.JumpPower = 0
+    
     local rainbowBox = Instance.new("Highlight")
     rainbowBox.Parent = char
     rainbowBox.Adornee = char
@@ -78,9 +83,11 @@ local function doRainbowTween(targetCFrame)
             RunService.RenderStepped:Wait()
         end
     end)
+    
     local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
     tween:Play()
+    
     tween.Completed:Connect(function()
         if hrp and hrp.Parent then hrp.Anchored = false end
         if hum and hum.Parent then
@@ -105,7 +112,7 @@ local function triggerBack()
     if STATE.OriginalPos then doRainbowTween(STATE.OriginalPos) end
 end
 
--- FIX SMART ANTI RAGDOLL
+-- SMART ANTI RAGDOLL (Không chặn di chuyển)
 local function applyAntiRagdoll()
     if not CONFIG.AntiRagdoll or STATE.Tweening then return end
     local char = LP.Character
@@ -115,13 +122,12 @@ local function applyAntiRagdoll()
     
     if hum and hrp then
         local state = hum:GetState()
-        -- Chỉ can thiệp khi thực sự bị ngã hoặc bị ép PlatformStand/Sit
         if hum.PlatformStand or hum.Sit or state == Enum.HumanoidStateType.Ragdoll or state == Enum.HumanoidStateType.FallingDown then
             hum.PlatformStand = false
             hum.Sit = false
             hum:ChangeState(Enum.HumanoidStateType.GettingUp)
             
-            -- Đóng băng tạm thời 0.1s để lấy lại thăng bằng
+            -- Neo cứng 0.1s để lấy lại thăng bằng, không block nhảy/chạy lâu dài
             hrp.Anchored = true
             task.delay(0.1, function()
                 if hrp and hrp.Parent then
@@ -142,6 +148,47 @@ end
 Workspace.DescendantAdded:Connect(function(v)
     if CONFIG.InstantPrompt and v:IsA("ProximityPrompt") then v.HoldDuration = 0 end
 end)
+
+local function applyFPSBoost()
+    if not CONFIG.FPSBoost then return end
+    pcall(function()
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 1000000
+        Lighting.Brightness = 1
+        for _, v in ipairs(Lighting:GetChildren()) do
+            if v:IsA("PostEffect") then v:Destroy() end
+        end
+        for _, v in ipairs(Workspace:GetDescendants()) do
+            if v:IsA("ParticleEmitter") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+                v.Enabled = false
+            elseif v:IsA("Trail") or v:IsA("Beam") then
+                v.Enabled = false
+            elseif v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
+                v.Enabled = false
+            end
+        end
+    end)
+end
+
+Workspace.DescendantAdded:Connect(function(inst)
+    if CONFIG.FPSBoost then
+        if inst:IsA("ParticleEmitter") or inst:IsA("Smoke") or inst:IsA("Fire") or inst:IsA("Sparkles") or inst:IsA("Trail") or inst:IsA("Beam") or inst:IsA("PointLight") or inst:IsA("SpotLight") or inst:IsA("SurfaceLight") then
+            inst.Enabled = false
+        end
+    end
+end)
+
+-- ANTI PAUSE HOOK
+local oldIndex
+if hookmetamethod then
+    oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
+        if self == UserInputService and CONFIG.AntiPause then
+            if key == "WindowFocused" then return true end
+            if key == "GetFocusedTextBox" then return nil end
+        end
+        return oldIndex(self, key)
+    end))
+end
 
 local function hopServerLowPlayer()
     task.spawn(function()
@@ -167,7 +214,7 @@ local function rejoinServer()
 end
 
 -- ==========================================
--- 2. UI SETUP
+-- 2. UI SETUP (CHUẨN HUONGCUTO)
 -- ==========================================
 local function getParent()
     local ok, cg = pcall(function() return game:GetService("CoreGui") end)
@@ -569,6 +616,12 @@ makeAction(tabMainPage, "TRIGGER TURBO", Color3.fromRGB(200, 50, 50), triggerTur
 makeAction(tabMainPage, "TRIGGER BACK", Color3.fromRGB(50, 150, 200), triggerBack)
 
 -- CHỨC NĂNG TAB SERVER
+makeToggle(tabServerPage, "ANTI GAME PAUSED", CONFIG.AntiPause, function(v) CONFIG.AntiPause = v end)
+makeToggle(tabServerPage, "FPS BOOSTER", CONFIG.FPSBoost, function(v) 
+    CONFIG.FPSBoost = v 
+    if v then applyFPSBoost() end 
+end)
+
 local serverInfoLbl = Instance.new("TextLabel")
 serverInfoLbl.Size = UDim2.new(1, 0, 0, 45)
 serverInfoLbl.BackgroundColor3 = Color3.fromRGB(20, 25, 35)
@@ -594,7 +647,7 @@ makeAction(tabServerPage, "HOP SERVER (<= 1 PLAYER)", Color3.fromRGB(0, 170, 255
 local function toggleMenu()
     STATE.UI_Open = not STATE.UI_Open
     local targetWidth = STATE.UI_Open and 320 or 260
-    local targetHeight = STATE.UI_Open and 380 or 38
+    local targetHeight = STATE.UI_Open and 400 or 38
     local targetCorner = STATE.UI_Open and UDim.new(0, 16) or UDim.new(1, 0)
     local targetX = STATE.UI_Open and (0.5 - 160) or (0.5 - 130)
     
@@ -696,4 +749,4 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
-print("[bangbuoibe67] Fixed Smart Anti-Ragdoll. Bạn có thể di chuyển và nhảy bình thường.")
+print("[bangbuoibe67] Final Ultimate Hub Loaded Successfully.")
